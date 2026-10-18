@@ -4,20 +4,28 @@ BookshelfNG is a Snapetech NG fork of Bookshelf for ebook and audiobook library
 management and acquisition. It works independently; SeerrNG integration is optional.
 
 > **Final release:** BookshelfNG `0.4.21.71` is the final source release. The
-> legacy template has not yet moved to ChaptarrNG. The published ChaptarrNG `.977`
-> converter accepts migration-158 SQLite but rejects versions before migration 14.
-> Upgrade BookshelfNG to `.71` first, or wait for the ChaptarrNG fix under hosted
-> validation. An empty-database Docker image-switch and rollback smoke passed;
-> the Community Apps template update and populated operator data remain untested.
+> legacy template on `main` has not yet moved to ChaptarrNG. The published
+> ChaptarrNG `.977` converter accepts migration-158 SQLite but rejects versions
+> before migration 14. A version-aware fix and one-schema PostgreSQL converter
+> are in the unpublished retirement candidate; exact-head hosted validation is
+> running, and operator-data and rollback acceptance remain open. ChaptarrNG
+> releases are frozen until the full acceptance gates close. An empty-database
+> Docker image-switch and rollback smoke passed; the Community Apps template
+> update and populated operator data remain untested.
 
 ## Existing installations
 
 Keep the current BookshelfNG image until you are ready to migrate. The legacy
-Community Apps template still points to BookshelfNG; the ChaptarrNG transition
-template has not yet been published. Read the
+Community Apps template on `main` still points to BookshelfNG. A transition
+candidate preserves its appdata path, port, media/download mappings, user IDs,
+timezone, and Hardcover settings while switching to the standard ChaptarrNG
+image. It is not published and must remain on its feature branch until the
+application release and Unraid update-flow gates pass. Run
+`python3 scripts/test-transition-template.py` to check the candidate mapping.
+Read the
 [BookshelfNG-to-ChaptarrNG migration guide](https://github.com/snapetech-org/bookshelfng/blob/main/docs/migrate-from-bookshelfng-to-chaptarrng.md),
-upgrade BookshelfNG to `.71`, stop the service, and keep an independent appdata
-backup. New installations should use the
+upgrade BookshelfNG to `.71`, stop the service, and keep an independent
+appdata backup before switching. New installations should use the
 [ChaptarrNG Unraid template](https://github.com/snapetech-org/chaptarrng-unraid).
 For a manual BookshelfNG install needed to inspect or roll back an existing
 library, use [the legacy template XML](../templates/bookshelfng.xml); it installs
