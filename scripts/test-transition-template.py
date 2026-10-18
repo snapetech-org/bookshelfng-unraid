@@ -47,7 +47,8 @@ def main() -> None:
         assert name in configs, f"Missing compatibility setting {name}"
 
     description = value("Description").lower()
-    for required in ("independent backup", "rollback", "unsupported databases fail closed"):
+    for required in ("independent backup", "rollback", "unsupported databases fail closed",
+                     "two populated legacy databases", "migration guide"):
         assert required in description, f"Missing operator guidance: {required}"
 
     print("Legacy Unraid transition template checks passed.")

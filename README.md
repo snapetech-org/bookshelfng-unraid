@@ -11,6 +11,14 @@ SeerrNG integration is optional.
 >
 > BookshelfNG's fail-closed release gate merged to `main` as `c6b4642`; its readiness variable remains unset and the published `.71` release remains the final release. Populated-data migration, rollback, and the Community Apps upgrade flow remain unaccepted.
 
+The ChaptarrNG handoff supports one database per appdata directory. Two
+populated legacy database files stop migration rather than being selected or
+merged. Keep independent installations separate, or use BookshelfNG's
+[two-instance media-consolidation runbook](https://github.com/snapetech-org/bookshelfng/blob/main/README.md#one-instance-for-ebooks-and-audiobooks)
+to move and import tracked media into one BookshelfNG instance before migrating
+that instance. Database histories, profiles, monitoring, and settings are not
+merged.
+
 ## Existing installations
 
 Keep the current BookshelfNG image until you are ready to migrate. The legacy
