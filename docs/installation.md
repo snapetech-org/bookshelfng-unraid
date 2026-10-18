@@ -9,7 +9,10 @@ management and acquisition. It works independently; SeerrNG integration is optio
 > SQLite and rejects older source schemas. An unreleased older-schema SQLite
 > upgrade path and one-schema PostgreSQL converter are under review in
 > [ChaptarrNG PR #131](https://github.com/snapetech-org/chaptarrng/pull/131);
-> exact-head platform and PostgreSQL checks are running on `e67f28ed`.
+> The `e67f28ed` run found a staging-schema column bug; `8f0bbc29` fixed it,
+but its hosted build then failed because the runner API did not expose
+`VersionLoader`. Commit `50f58223` reads the registered
+`IVersionTableMetaData` service, and exact-head CI is running.
 > BookshelfNG's fail-closed publishing gate is under review in
 > [PR #148](https://github.com/snapetech-org/bookshelfng/pull/148). No new
 > release or image will be published while operator-data migration, rollback,
