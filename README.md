@@ -5,26 +5,11 @@ This repository publishes the standalone BookshelfNG Unraid Docker template.
 ebook and audiobook library management and acquisition. It works independently;
 SeerrNG integration is optional.
 
-> **Final release:** BookshelfNG `0.4.21.71` is the final source release. The
-> legacy Unraid template has not yet switched to ChaptarrNG. The latest
-> published ChaptarrNG release is `v0.9.977`, which accepts migration-158
-> SQLite and rejects older source schemas. An unreleased older-schema SQLite
-> upgrade path and one-schema PostgreSQL converter are under review in
-> [ChaptarrNG PR #131](https://github.com/snapetech-org/chaptarrng/pull/131);
-> The `e67f28ed` run found a staging-schema column bug; `8f0bbc29` fixed it,
-> but its hosted build then failed because the runner API did not expose
-> `VersionLoader`. Commit `50f58223` reads the registered
-> `IVersionTableMetaData` service, but its fixture then failed at migration 23
-> because an unqualified schema check examined `public.NamingConfig` and
-> skipped staging `EbookRenameBooks`. ChaptarrNG commit `e6e9b955` routes
-> unqualified PostgreSQL checks through a schema-scoped processor and adds a
-> regression test; PR #131 is validating that code.
-> BookshelfNG's fail-closed publishing gate is under review in
-> [PR #148](https://github.com/snapetech-org/bookshelfng/pull/148). No new
-> release or image will be published while operator-data migration, rollback,
-> and installer acceptance remain open. An isolated Docker image-switch smoke
-> passed with an empty database and rollback; populated data and the Community
-> Apps template update flow remain untested.
+> **Final release:** BookshelfNG `0.4.21.71` is published. The latest public ChaptarrNG release is `v0.9.977`; it accepts migration-158 SQLite and rejects older schemas. The unreleased older-schema SQLite and one-schema PostgreSQL candidate is in [ChaptarrNG PR #131](https://github.com/snapetech-org/chaptarrng/pull/131), last code-validation run used commit `21c41ad5`.
+>
+> The PostgreSQL smoke run [39127070836](https://github.com/snapetech-org/chaptarrng/actions/runs/39127070836) on code head `21c41ad5` failed during application startup before the 300-second readiness limit (DryIoc exception, no NUnit totals). This does not establish a converter assertion failure. Follow PR #131 for current diagnostics. Do not use the candidate with operator data.
+>
+> BookshelfNG's fail-closed release gate merged to `main` as `c6b4642`; its readiness variable remains unset and the published `.71` release remains the final release. Populated-data migration, rollback, and the Community Apps upgrade flow remain unaccepted.
 
 ## Existing installations
 
