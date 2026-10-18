@@ -6,17 +6,18 @@ ebook and audiobook library management and acquisition. It works independently;
 SeerrNG integration is optional.
 
 > **Final release:** BookshelfNG `0.4.21.71` is the final source release. The
-> legacy Unraid template has not yet switched to ChaptarrNG. ChaptarrNG `.977`
-> accepts migration-158 SQLite; it rejects versions before 14. A version-aware
-> migration fix and one-schema PostgreSQL converter are in the unpublished
-> ChaptarrNG retirement candidate. Its hosted run on `0211ed91` failed in the
-> staged-target version preflight; commit `ef519cd7` scopes the check to the
-> active schema, and the exact hosted rerun is queued. Operator-data and
-> rollback acceptance remain open. ChaptarrNG releases are
-> frozen until those gates and the installer handoff are complete. An isolated
-> Docker image-switch smoke passed with an empty database and rollback; the
-> Community Apps template update flow and populated operator data remain
-> untested.
+> legacy Unraid template has not yet switched to ChaptarrNG. The latest
+> published ChaptarrNG release is `v0.9.977`, which accepts migration-158
+> SQLite and rejects older source schemas. An unreleased older-schema SQLite
+> upgrade path and one-schema PostgreSQL converter are under review in
+> [ChaptarrNG PR #131](https://github.com/snapetech-org/chaptarrng/pull/131);
+> exact-head platform and PostgreSQL checks are running on `e67f28ed`.
+> BookshelfNG's fail-closed publishing gate is under review in
+> [PR #148](https://github.com/snapetech-org/bookshelfng/pull/148). No new
+> release or image will be published while operator-data migration, rollback,
+> and installer acceptance remain open. An isolated Docker image-switch smoke
+> passed with an empty database and rollback; populated data and the Community
+> Apps template update flow remain untested.
 
 ## Existing installations
 
