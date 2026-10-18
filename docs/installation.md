@@ -3,9 +3,9 @@
 BookshelfNG is a Snapetech NG fork of Bookshelf for ebook and audiobook library
 management and acquisition. It works independently; SeerrNG integration is optional.
 
-> **Final release:** BookshelfNG `0.4.21.71` is published. The latest public ChaptarrNG release is `v0.9.977`; it accepts migration-158 SQLite and rejects older schemas. The unreleased older-schema SQLite and one-schema PostgreSQL candidate is in [ChaptarrNG PR #131](https://github.com/snapetech-org/chaptarrng/pull/131), last code-validation run used commit `21c41ad5`.
+> **Final release:** BookshelfNG `0.4.21.71` is published. The latest public ChaptarrNG release is `v0.9.977`; it accepts migration-158 SQLite and rejects older schemas. The unreleased older-schema SQLite and one-schema PostgreSQL candidate is in [ChaptarrNG PR #131](https://github.com/snapetech-org/chaptarrng/pull/131); follow it for current exact-head validation.
 >
-> The PostgreSQL smoke run [39127070836](https://github.com/snapetech-org/chaptarrng/actions/runs/39127070836) on code head `21c41ad5` failed during application startup before the 300-second readiness limit (DryIoc exception, no NUnit totals). This does not establish a converter assertion failure. Follow PR #131 for current diagnostics. Do not use the candidate with operator data.
+> PostgreSQL smoke run [39128352662](https://github.com/snapetech-org/chaptarrng/actions/runs/39128352662) on head `e908227b` exited during application startup before the 300-second readiness limit. Its safe receipt contained a DryIoc interpreter method token, but no verified exception class, underlying cause, or NUnit totals; the converter result is unknown. Follow PR #131 for current diagnostics; corrected class/frame reporting is being validated on head `7eb58085`. Do not use the candidate with operator data.
 >
 > Follow-up exact-head validation for ChaptarrNG `e908227b` is running; the PR will record the result.
 >
