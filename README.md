@@ -9,8 +9,10 @@ SeerrNG integration is optional.
 > legacy Unraid template has not yet switched to ChaptarrNG. ChaptarrNG `.977`
 > accepts migration-158 SQLite; it rejects versions before 14. A version-aware
 > migration fix and one-schema PostgreSQL converter are in the unpublished
-> ChaptarrNG retirement candidate. Exact-head hosted validation is running;
-> operator-data and rollback acceptance remain open. ChaptarrNG releases are
+> ChaptarrNG retirement candidate. Its hosted run on `0211ed91` failed in the
+> staged-target version preflight; commit `ef519cd7` scopes the check to the
+> active schema, and the exact hosted rerun is queued. Operator-data and
+> rollback acceptance remain open. ChaptarrNG releases are
 > frozen until those gates and the installer handoff are complete. An isolated
 > Docker image-switch smoke passed with an empty database and rollback; the
 > Community Apps template update flow and populated operator data remain
@@ -24,8 +26,8 @@ candidate keeps the existing BookshelfNG entry, appdata path, port, media and
 download mappings, user IDs, timezone, and Hardcover settings while switching
 to the standard ChaptarrNG image. It is not published and must remain on its
 feature branch until the application release and Unraid update-flow gates
-pass. Run `python3 scripts/test-transition-template.py` to check the candidate
-mapping. Read the
+pass. The XML and settings-preservation check passed; run
+`python3 scripts/test-transition-template.py` to repeat it. Read the
 [BookshelfNG-to-ChaptarrNG migration guide](https://github.com/snapetech-org/bookshelfng/blob/main/docs/migrate-from-bookshelfng-to-chaptarrng.md),
 upgrade BookshelfNG to `.71`, stop the service, and keep an independent
 appdata backup before switching. New installations should use the
