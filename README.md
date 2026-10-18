@@ -9,8 +9,6 @@ SeerrNG integration is optional.
 >
 > PostgreSQL smoke run [39128352662](https://github.com/snapetech-org/chaptarrng/actions/runs/39128352662) on head `e908227b` exited during application startup before the 300-second readiness limit. Its safe receipt contained a DryIoc interpreter method token, but no verified exception class, underlying cause, or NUnit totals; the converter result is unknown. Follow PR #131 for current diagnostics; corrected class/frame reporting is being validated on head `7eb58085`. Do not use the candidate with operator data.
 >
-> Follow-up exact-head validation for ChaptarrNG `e908227b` is running; the PR will record the result.
->
 > BookshelfNG's fail-closed release gate merged to `main` as `c6b4642`; its readiness variable remains unset and the published `.71` release remains the final release. Populated-data migration, rollback, and the Community Apps upgrade flow remain unaccepted.
 
 ## Existing installations
