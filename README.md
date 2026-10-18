@@ -5,6 +5,17 @@ This repository publishes the standalone BookshelfNG Unraid Docker template.
 ebook and audiobook library management and acquisition. It works independently;
 SeerrNG integration is optional.
 
+> **BookshelfNG final release:** `0.4.21.71` is the final source release.
+> Existing Unraid installations still use the BookshelfNG image unless the
+> template is changed; the ChaptarrNG image is
+> `ghcr.io/snapetech-org/chaptarrng`. To migrate, follow the
+> [operator guide](https://github.com/snapetech-org/bookshelfng/blob/main/docs/migrate-from-bookshelfng-to-chaptarrng.md),
+> keep an independent appdata backup, and upgrade BookshelfNG to `.71` before
+> conversion. ChaptarrNG `v0.9.977` accepts migration-158 SQLite and currently
+> rejects source schemas before migration 14; a version-aware fix is under
+> hosted validation. The Community Apps template transition is not yet
+> published or tested for upgrade and rollback.
+
 ## Installation and setup
 
 In Unraid, open **Apps**, search for **BookshelfNG**, and select **Install** on
