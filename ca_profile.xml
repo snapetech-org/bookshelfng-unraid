@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <CommunityApplications>
-  <Profile>This legacy BookshelfNG listing is being prepared for migration to ChaptarrNG. Back up appdata before changing the template. The transition keeps existing BookshelfNG paths and installs the standard ChaptarrNG image after its version-aware migration fix and Community Apps upgrade validation are complete. New installations should use ChaptarrNG.</Profile>
+  <Profile>This legacy BookshelfNG listing is being prepared for migration to ChaptarrNG. Back up appdata before changing the template. Public ChaptarrNG v0.9.977 supports migration-158 SQLite. Upgrade BookshelfNG to 0.4.21.71 first; the version-aware older-schema fix is merged to ChaptarrNG main but is not publicly released. Keep the migration template unpublished until the retirement freeze ends and the Community Apps upgrade flow is validated. New installations should use ChaptarrNG.</Profile>
   <Icon>https://raw.githubusercontent.com/snapetech-org/chaptarrng/main/Logo/256.png</Icon>
   <WebPage>https://github.com/snapetech-org/bookshelfng-unraid</WebPage>
   <Forum>https://github.com/snapetech-org/seerrng/issues</Forum>

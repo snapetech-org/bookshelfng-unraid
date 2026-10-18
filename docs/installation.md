@@ -11,8 +11,16 @@ The transition template points to
 `/download`, port 8787, PUID/PGID, timezone, and existing Hardcover variables.
 Do not apply it until the version-aware ChaptarrNG SQLite fix is released and
 the Community Apps upgrade path is validated. ChaptarrNG `v0.9.977` accepts
-migration-158 SQLite. Upgrade BookshelfNG to `.71` first, or wait for the
-follow-up release before switching an older database.
+migration-158 SQLite. Upgrade BookshelfNG to `.71` first. PR #126 merged the
+version-aware fix to ChaptarrNG `main`, but that source change is not in a
+public release while the retirement freeze is active. PostgreSQL sources and
+two populated BookshelfNG databases are not supported.
+
+ChaptarrNG PR #129 merged the M4B compatibility source and PR #130 merged a
+lossy mapping from BookshelfNG's numeric import threshold to ChaptarrNG's
+matching modes. Neither change is in public `.977`; keep
+`BOOKSHELF_M4B_MERGE` unset. Matching algorithms differ, so converted-library
+acceptance for the mapping remains open.
 
 Follow the
 [operator migration guide](https://github.com/snapetech-org/bookshelfng/blob/main/docs/migrate-from-bookshelfng-to-chaptarrng.md).
