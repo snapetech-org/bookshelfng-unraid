@@ -1,0 +1,32 @@
+name: Unraid transition template
+
+on:
+  pull_request:
+    paths:
+      - "templates/bookshelfng.xml"
+      - "scripts/test-transition-template.py"
+      - ".github/workflows/transition-template.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "templates/bookshelfng.xml"
+      - "scripts/test-transition-template.py"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-transition-template:
+    name: Validate legacy handoff template
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Validate preserved identity and settings
+        run: python3 scripts/test-transition-template.py
