@@ -5,7 +5,7 @@ management and acquisition. It works independently; SeerrNG integration is optio
 
 > **Latest published releases:** BookshelfNG `0.4.21.71` and ChaptarrNG `v0.9.977`. The published ChaptarrNG migration supports migration-158 SQLite; older schemas and PostgreSQL sources are unsupported by that release.
 >
-> ChaptarrNG [PR #131](https://github.com/snapetech-org/chaptarrng/pull/131) remains a draft. Its candidate adds older SQLite migrations, one PostgreSQL source schema, explicit Hardcover identity handling, BookOrbit, media moves, and BookshelfNG ZIP-backup restore. Candidate validation, representative-data migration and rollback, feature-parity review, and update-channel acceptance remain open. Do not point ChaptarrNG at live BookshelfNG appdata.
+> ChaptarrNG [PR #131](https://github.com/snapetech-org/chaptarrng/pull/131) remains draft at code head `50e4cc14cf9cf87bbfeebbbb114cadbbeab6b5a3`, which merges current `main` at `95f112e7` and adds the stable `master` image alias. Exact-head Build [39219378504](https://github.com/snapetech-org/chaptarrng/actions/runs/39219378504) passed Linux 4,412/0 failed, macOS 4,407/0, Windows 4,373/0, and PostgreSQL migration fixtures 53/0; all four validation receipts reconciled. CodeQL, security, NuGet, and dependency review also passed. Representative-data, parity, installed rollback, and channel acceptance remain open. Do not point ChaptarrNG at live BookshelfNG appdata or use the candidate restore flow for production migration.
 >
 > A copy-only populated migration-158 SQLite rehearsal passed preview, apply, restore preview, and rollback with native Hardcover mode and networking disabled. It retained the source backup and restored that backup byte-for-byte. This was one rehearsal and does not establish operator-data acceptance. The candidate restore change is not in public `.977`.
 >
@@ -32,7 +32,8 @@ appdata backup before switching. New installations should use the
 [ChaptarrNG Unraid template](https://github.com/snapetech-org/chaptarrng-unraid).
 For a manual BookshelfNG install needed to inspect or roll back an existing
 library, use [the legacy template XML](../templates/bookshelfng.xml); it installs
-`ghcr.io/snapetech-org/bookshelfng:main`.
+`ghcr.io/snapetech-org/bookshelfng:latest`. Stable releases keep `:main`,
+`:master`, and `:latest` on the same image; branch builds use development tags.
 
 - Map persistent appdata to `/config` and your media to `/data`.
 - Map downloads to `/download`, matching your download client's container paths.
