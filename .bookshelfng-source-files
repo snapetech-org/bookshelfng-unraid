@@ -2065,6 +2065,7 @@ release-notes/added-unraid-standalone-template.md
 release-notes/added-weighted-edition-preferences.md
 release-notes/changed-add-item-search-mode.md
 release-notes/changed-capabilities-and-compatibility-docs.md
+release-notes/changed-chocolatey-package-verification.md
 release-notes/changed-complete-source-build-instructions.md
 release-notes/changed-copr-webhook.md
 release-notes/changed-discord-curated-announcement.md
@@ -2181,6 +2182,7 @@ scripts/test-audit-chaptarr-consolidation.py
 scripts/test-bookshelfng-release-readiness-gate.sh
 scripts/test-bookshelfng-to-chaptarrng.sh
 scripts/test-chaptarrng-release-bridge.sh
+scripts/test-chocolatey-package-verifier.ps1
 scripts/test-copr-source.sh
 scripts/test-sync-unraid-package.sh
 scripts/test_workflow_runner_policy.py
