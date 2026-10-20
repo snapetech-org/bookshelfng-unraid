@@ -5,9 +5,38 @@ management and acquisition. It works independently; SeerrNG integration is optio
 
 > **Published state:** BookshelfNG `0.4.21.71` and ChaptarrNG `v0.9.977` remain the latest releases. The published converter is preview-only for migration-158 SQLite. While [BookshelfNG issue #144](https://github.com/snapetech-org/bookshelfng/issues/144) remains open, do not apply migration or start ChaptarrNG against BookshelfNG appdata.
 >
-> ChaptarrNG PR #131 remains draft at docs-only head `93213b67`, on top of application-code commit `0e881d92`. The application-code Build [39313568727](https://github.com/snapetech-org/chaptarrng/actions/runs/39313568727) passed Linux, macOS, and Windows, PostgreSQL migration, release-note, receipt, and Linux pinned-tool M4B checks; CodeQL, analysis, dependency/security, dependency-review, NuGet, and Helm identity checks also passed. Exact-head Build [39316535744](https://github.com/snapetech-org/chaptarrng/actions/runs/39316535744) for the docs follow-up passed on Linux, macOS, and Windows, including PostgreSQL migration and native-runner receipt reconciliation. Current details are in the [ChaptarrNG migration status](https://github.com/snapetech-org/chaptarrng/blob/codex/bookshelf-retirement-next-20261018/README.md#bookshelfng-migration-status). The Linux artifact from Build 39316535744 passed the populated synthetic migration-to-SeerrNG Compose smoke, including restricted-key checks and pending import add, poll, and cancel; see the migration guide for details. These checks do not establish operator-data, installed-rollback, or update-channel acceptance; the feature and release gates remain open. BKSENC01 backup support is not in public `.977`.
+> **ChaptarrNG migration candidate:** PR #131 remains draft at code head
+> `730ba5e85d480a71aab52f0cae8541e40b57811b`. At the 2026-10-20 04:50 UTC
+> check, Windows in exact-head Build [39371469467](https://github.com/snapetech-org/chaptarrng/actions/runs/39371469467)
+> was in progress; Linux, macOS, PostgreSQL migration, and the release-note
+> contract were queued. CodeQL [39371467266](https://github.com/snapetech-org/chaptarrng/actions/runs/39371467266),
+> Security Analysis [39371469595](https://github.com/snapetech-org/chaptarrng/actions/runs/39371469595),
+> dependency review [39371469626](https://github.com/snapetech-org/chaptarrng/actions/runs/39371469626),
+> Helm validation [39371469558](https://github.com/snapetech-org/chaptarrng/actions/runs/39371469558),
+> and NuGet submission [39371468020](https://github.com/snapetech-org/chaptarrng/actions/runs/39371468020)
+> were queued. Trivy [39371469459](https://github.com/snapetech-org/chaptarrng/actions/runs/39371469459)
+> and Semgrep [39371469456](https://github.com/snapetech-org/chaptarrng/actions/runs/39371469456)
+> were pending. Earlier exact-head candidate `7ff38a58` passed Linux, macOS,
+> Windows, PostgreSQL migration, receipt reconciliation, CodeQL, security,
+> Trivy, dependency review, and NuGet checks. Candidate `3f54017d` exposed the
+> .NET SDK mismatch that caused its macOS validation tests to be skipped.
+> Candidate `1a1c7320` aligned the global pin, three primary Docker build images,
+> and hosted workflow pins, but missed `integration/Dockerfile.m4b-test`.
+> Candidate `730ba5e8` updates that fourth image and adds a guard that checks all
+> Docker and hosted SDK pins against `global.json`. Representative data, semantic
+> parity, installed rollback, provider fulfillment, update-channel handoff, and
+> operator acceptance remain open. Keep BookshelfNG running; no release, package,
+> image, or migration bridge is authorized.
 >
-> The Unraid transition [PR #5](https://github.com/snapetech-org/bookshelfng-unraid/pull/5) remains a draft at branch head `69f53b434f7be565e5ca3bb8b734942758460451`. Its refreshed README and installation page point at ChaptarrNG PR #131 head `93213b67`; the exact-head template-preservation check passed in run [39317048739](https://github.com/snapetech-org/bookshelfng-unraid/actions/runs/39317048739). The real Community Applications upgrade and rollback flow has not been accepted. Both release-readiness gates remain unset; no migration bridge is published.
+> **Unraid transition:** [PR #5](https://github.com/snapetech-org/bookshelfng-unraid/pull/5)
+> remains draft at current documentation head
+> `697ae718ada609d2fdb0a91fd43e381d71d02f48`. The last template-preservation
+> check [39358120264](https://github.com/snapetech-org/bookshelfng-unraid/actions/runs/39358120264)
+> passed on code head `434138d5654c7b284b92e411423f919b13a32b3e`; the later
+> documentation-only commit leaves the template unchanged. This check covers
+> XML and preserved settings only. A live Community Applications upgrade and
+> rollback have not been exercised. The template on `main` still installs
+> BookshelfNG.
 
 ## Existing installations
 
@@ -47,3 +76,8 @@ builds use development tags.
 - [Unraid package and SeerrNG integration support](https://github.com/snapetech-org/seerrng/issues)
 
 BookshelfNG is derived from Bookshelf and Readarr and distributed under GPLv3.
+
+
+## Security scanning
+
+For local and hosted repository checks, see [security-scanning.md](security-scanning.md).
