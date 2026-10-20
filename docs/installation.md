@@ -5,9 +5,25 @@ management and acquisition. It works independently; SeerrNG integration is optio
 
 > **Published state:** BookshelfNG `0.4.21.71` and ChaptarrNG `v0.9.977` remain the latest releases. The published converter is preview-only for migration-158 SQLite. While [BookshelfNG issue #144](https://github.com/snapetech-org/bookshelfng/issues/144) remains open, do not apply migration or start ChaptarrNG against BookshelfNG appdata.
 >
-> ChaptarrNG PR #131 remains draft at code head `ebe838dd7a74780692350c9d02826f219919582b`. The new Windows test uses the actual installer with a disposable BookshelfNG `.71` service and populated migration-158 data. It forces a local `/ping` failure to exercise automatic rollback, retries migration, then checks explicit restore. The Windows-targeted harness compiles locally and its fixture passes SQLite integrity and foreign-key checks. Exact-head Build [39339777476](https://github.com/snapetech-org/chaptarrng/actions/runs/39339777476) is still running, including the Windows service and PostgreSQL jobs. Release-note contract, Security analysis [39339777368](https://github.com/snapetech-org/chaptarrng/actions/runs/39339777368), Dependency review [39339777472](https://github.com/snapetech-org/chaptarrng/actions/runs/39339777472), Helm identity [39339777453](https://github.com/snapetech-org/chaptarrng/actions/runs/39339777453), and NuGet submission [39339771379](https://github.com/snapetech-org/chaptarrng/actions/runs/39339771379) passed. The installer remains unpublished. Operator-data, feature-parity, update-channel, and Unraid Community Applications acceptance remain open. BKSENC01 backup support is not in public `.977`.
+> Current candidate status (2026-10-19): ChaptarrNG PR #131 is at code head
+> `a6d7908e937c870a4b2d3209f5aafbb9b640f6cd`. Exact-head Build
+> [39357519729](https://github.com/snapetech-org/chaptarrng/actions/runs/39357519729) is queued; the previous code head
+> `e4b909ff` is under hosted validation in Build
+> [39357406142](https://github.com/snapetech-org/chaptarrng/actions/runs/39357406142). On code head `969fb20b`, Build [39353846035](https://github.com/snapetech-org/chaptarrng/actions/runs/39353846035) first stopped on HTTP 403 while
+> downloading the pinned BookshelfNG `.71` archive; retrying that old code then
+> failed when raw WAL fingerprinting read `readarr.db-wal` while the SQLite
+> guard held it open. Rollback also left the service marked for deletion while
+> a PowerShell `ServiceController` handle remained open. Commit `e4b909ff` adds
+> archive retry/backoff and captures raw fingerprints outside the guard lifetime;
+> commit `a6d7908e` disposes the service handle before waiting for removal. The
+> exact Linux artifact from `969fb20b` passed the populated migration and
+> SeerrNG lifecycle smokes with synthetic records. PR #131 remains draft and
+> unpublished. No release, package, image, or bridge was published.
+> Representative operator data, exhaustive semantic disposition, provider
+> fulfillment, installation-channel handoff, and operator acceptance remain open.
+> Keep BookshelfNG in service; do not apply production migration.
 >
-> The Unraid transition [PR #5](https://github.com/snapetech-org/bookshelfng-unraid/pull/5) remains draft. Its hosted template-preservation check passed in [run 39340267938](https://github.com/snapetech-org/bookshelfng-unraid/actions/runs/39340267938). That check validates the candidate XML and settings preservation; it does not exercise a live Community Applications update or rollback. Both release-readiness gates remain unset; no migration bridge is published.
+> The Unraid transition [PR #5](https://github.com/snapetech-org/bookshelfng-unraid/pull/5) remains draft. Its hosted template-preservation check passed in [run 39340676919](https://github.com/snapetech-org/bookshelfng-unraid/actions/runs/39340676919). That check validates the candidate XML and settings preservation; it does not exercise a live Community Applications update or rollback. Both release-readiness gates remain unset; no migration bridge is published.
 
 ## Existing installations
 
