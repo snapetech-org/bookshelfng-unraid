@@ -1,0 +1,60 @@
+name: Retry Standalone Release Distribution
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Verified BookshelfNG main release tag
+        required: true
+        type: string
+      softcover_digest:
+        description: Published Softcover container digest
+        required: true
+        type: string
+      hardcover_digest:
+        description: Published Hardcover container digest
+        required: true
+        type: string
+      runtime_pack_run_id:
+        description: Optional successful runtime-pack artifact run for a retry
+        required: false
+        type: string
+        default: ""
+      channels:
+        description: Package publishers to run (all, or a comma-separated subset of aur,copr,ppa,chocolatey,helm)
+        required: false
+        type: string
+        default: all
+      chocolatey_use_main_packaging:
+        description: Use main's Chocolatey package scripts while resubmitting a pending version; the release archive still comes from the selected tag
+        required: false
+        type: boolean
+        default: false
+      skip_announcement:
+        description: Prevent a duplicate Discord announcement (true by default for retries)
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  distribute:
+    name: Build and publish standalone release channels
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+      id-token: write
+    uses: ./.github/workflows/release-distribution.yml
+    with:
+      tag: ${{ inputs.tag }}
+      softcover_digest: ${{ inputs.softcover_digest }}
+      hardcover_digest: ${{ inputs.hardcover_digest }}
+      runtime_pack_run_id: ${{ inputs.runtime_pack_run_id }}
+      channels: ${{ inputs.channels }}
+      chocolatey_use_main_packaging: ${{ inputs.chocolatey_use_main_packaging }}
+      skip_announcement: ${{ inputs.skip_announcement }}
+    secrets: inherit

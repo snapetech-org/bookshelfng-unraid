@@ -1,0 +1,600 @@
+name: CI
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - "main-*"
+    paths-ignore:
+      - "README.md"
+      - "docs/**"
+      - "src/Readarr.Api.*/openapi.json"
+  pull_request:
+    paths-ignore:
+      - "README.md"
+      - "docs/**"
+      - "src/NzbDrone.Core/Localization/Core"
+      - "src/Readarr.Api.*/openapi.json"
+
+env:
+  DOTNET_VERSION: "10.0.401"
+  READARR_VERSION: 0.4.21
+  OUTPUT_FOLDER: ./_output
+  ARTIFACTS_FOLDER: ./_artifacts
+  TESTS_FOLDER: ./_tests
+  BUILD_SOURCEBRANCHNAME: ${{ github.head_ref || github.ref_name }}
+
+jobs:
+  build:
+    # All builds use GitHub-hosted runners.
+    runs-on: ubuntu-latest
+    outputs:
+      build_version: ${{ steps.variables.outputs.build_version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Test the BookshelfNG release readiness gate
+        run: |
+          bash -n scripts/require-bookshelfng-release-ready.sh scripts/test-bookshelfng-release-readiness-gate.sh
+          bash scripts/test-bookshelfng-release-readiness-gate.sh
+
+      - name: Check stable container image aliases
+        run: python3 scripts/check-stable-container-aliases.py
+
+      - name: Require retirement acceptance before tagged publication
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/main-')
+        env:
+          BOOKSHELFNG_RELEASE_READY: ${{ vars.BOOKSHELFNG_RELEASE_READY || 'false' }}
+        run: bash scripts/require-bookshelfng-release-ready.sh
+
+      - name: Test hosted runner policy
+        run: python3 scripts/test_workflow_runner_policy.py
+
+      - name: Test consolidation inventory path hints
+        run: python3 scripts/test-audit-chaptarr-consolidation.py
+
+      - name: Test the COPR migration source bridge
+        run: |
+          bash -n packaging/rpm/copr-source.sh scripts/test-copr-source.sh
+          bash scripts/test-copr-source.sh
+      - name: Test the ChaptarrNG image namespace used by the release bridge
+        run: |
+          bash -n scripts/test-chaptarrng-release-bridge.sh
+          bash scripts/test-chaptarrng-release-bridge.sh
+
+      - name: Test the BookshelfNG to ChaptarrNG transfer helper
+        run: |
+          bash -n scripts/bookshelfng-to-chaptarrng.sh scripts/test-bookshelfng-to-chaptarrng.sh
+          bash scripts/test-bookshelfng-to-chaptarrng.sh
+
+      - name: Configure MISE directories
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -m 700 -- "$RUNNER_TEMP/mise-data" "$RUNNER_TEMP/mise-cache" "$RUNNER_TEMP/mise-tmp"
+          printf 'MISE_DATA_DIR=%s/mise-data\nMISE_CACHE_DIR=%s/mise-cache\nMISE_TMP_DIR=%s/mise-tmp\n' \
+            "$RUNNER_TEMP" "$RUNNER_TEMP" "$RUNNER_TEMP" >> "$GITHUB_ENV"
+
+      - name: Require main release tag
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/main-')
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF_NAME}" != main-* ]]; then
+            echo "Image publishing requires a main-* tag, got ${GITHUB_REF_NAME}" >&2
+            exit 1
+          fi
+          git fetch --force origin main --tags
+          main_ref=origin/main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" "$main_ref"; then
+            echo "Tag ${GITHUB_REF_NAME} must point at a commit on ${main_ref}." >&2
+            exit 1
+          fi
+
+      - name: Verify Unraid package is synced
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/main-')
+        run: bash scripts/verify-package-sync.sh
+
+      - name: Validate Discord webhook before publishing images
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/main-')
+        shell: bash
+        env:
+          DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+        run: bash scripts/validate-release-publisher-config.sh discord
+
+      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+
+      - name: Setup Environment Variables
+        id: variables
+        shell: bash
+        run: |
+          echo "SDK_PATH=${{ env.DOTNET_ROOT }}/sdk/${DOTNET_VERSION}" >> "$GITHUB_ENV"
+          echo "DATE=$(date --rfc-3339=date)" >> "$GITHUB_ENV"
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" && "$GITHUB_REF_NAME" == main-v* ]]; then
+            build_version="${GITHUB_REF_NAME#main-v}"
+          else
+            build_version="${READARR_VERSION}.${GITHUB_RUN_NUMBER}"
+          fi
+          echo "build_version=$build_version" >> "$GITHUB_OUTPUT"
+          echo "Resolved BookshelfNG version: $build_version"
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: _cache/nuget
+          key: nuget-${{ runner.os }}-${{ hashFiles('src/Directory.Packages.props', 'src/**/*.csproj', 'global.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Cache Node modules
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            _cache/node
+            node_modules
+          key: node-${{ runner.os }}-${{ hashFiles('package.json', 'yarn.lock') }}
+          restore-keys: |
+            node-${{ runner.os }}-
+
+      - name: Cache MSBuild outputs
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: _cache/msbuild
+          key: msbuild-${{ runner.os }}-${{ hashFiles('src/**/*.cs', 'src/**/*.csproj', 'src/**/*.targets', 'src/**/*.props') }}
+          restore-keys: |
+            msbuild-${{ runner.os }}-${{ hashFiles('src/**/*.cs', 'src/**/*.csproj', 'src/**/*.targets', 'src/**/*.props') }}
+            msbuild-${{ runner.os }}-
+
+      - name: Cache Webpack
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: _cache/webpack
+          key: webpack-${{ runner.os }}-${{ hashFiles('frontend/src/**/*', 'yarn.lock') }}
+          restore-keys: |
+            webpack-${{ runner.os }}-${{ hashFiles('frontend/src/**/*', 'yarn.lock') }}
+            webpack-${{ runner.os }}-
+
+      - name: Build
+        shell: bash
+        run: ./build.sh --backend --frontend
+        env:
+          READARRVERSION: ${{ steps.variables.outputs.build_version }}
+
+      - name: Install Chromium and system dependencies on GitHub-hosted Linux
+        if: runner.os == 'Linux'
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/playwright-browsers
+        run: pwsh ./_tests/net10.0/linux-x64/playwright.ps1 install --with-deps chromium
+
+      - name: Prepare tests
+        run: |
+          mkdir -p _tests/bin
+          cp _output/net10.0/linux-x64/publish/Readarr _tests/bin/
+          chmod +x _tests/bin/Readarr
+          find _tests -name "Readarr.Test.Dummy" -exec chmod a+x {} \;
+
+      - name: Verify Unraid package sync stays off feature branches
+        shell: bash
+        run: bash scripts/test-sync-unraid-package.sh
+
+      - name: Test
+        id: validation
+        shell: bash
+        env:
+          DIRECT_DOWNLOAD_REQUIRE_PLAYWRIGHT: "true"
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/playwright-browsers
+          VALIDATION_NODE_ID: bookshelf-linux-x64-unit
+          VALIDATION_RECEIPT_EXPORT: ${{ runner.temp }}/bookshelf-validation/receipt.json
+          VALIDATION_NUNIT_EXPORT: ${{ runner.temp }}/bookshelf-validation/TestResult.xml
+        run: |
+          set -euo pipefail
+          mkdir -p "${{ runner.temp }}/bookshelf-validation"
+          echo "started=true" >> "$GITHUB_OUTPUT"
+          set +e
+          node scripts/validation-engine/engine.mjs --tests-only
+          status=$?
+          set -e
+          if [[ -s "$VALIDATION_NUNIT_EXPORT" ]]; then
+            cp "$VALIDATION_NUNIT_EXPORT" ./TestResult.xml
+          fi
+          exit "$status"
+
+      - name: Report test results
+        uses: dorny/test-reporter@d1b5dff021aa968b288b02285a8bf47471c5928a # v3
+        if: always()
+        with:
+          name: Unit Test Results
+          path: "**/TestResult.xml"
+          list-tests: "failed"
+          reporter: dotnet-nunit
+          fail-on-error: true
+
+      - name: Upload validation receipt
+        if: always() && steps.validation.outputs.started == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bookshelf-validation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/bookshelf-validation/receipt.json
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Upload container build output
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/main-'))
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bookshelfng-publish-output
+          path: _output/
+          compression-level: 0
+          retention-days: 1
+
+  publish-images:
+    name: Publish container images
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/main-') && vars.BOOKSHELFNG_RELEASE_READY == 'true'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    outputs:
+      softcover_digest: ${{ steps.softcover_image.outputs.digest }}
+      hardcover_digest: ${{ steps.hardcover_image.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: bookshelfng-publish-output
+          path: _output
+
+      - name: Set image build date
+        run: echo "DATE=$(date --rfc-3339=date)" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
+        id: gr_meta
+        with:
+          images: |
+            ghcr.io/${{ github.repository }}
+            docker.io/snapetech/bookshelfng
+          tags: |
+            type=raw,value=softcover,enable=${{ github.ref_type == 'tag' }}
+            type=raw,value=softcover-dev,enable=${{ github.ref_type != 'tag' }}
+            type=raw,value=softcover-v${{ needs.build.outputs.build_version }},enable=${{ github.ref_type == 'tag' }}
+            type=sha,suffix=-softcover
+
+      - uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
+        id: hc_meta
+        with:
+          images: |
+            ghcr.io/${{ github.repository }}
+            docker.io/snapetech/bookshelfng
+          tags: |
+            type=raw,value=hardcover,enable=${{ github.ref_type == 'tag' }}
+            type=raw,value=main,enable=${{ github.ref_type == 'tag' }}
+            type=raw,value=master,enable=${{ github.ref_type == 'tag' }}
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' }}
+            type=raw,value=stable,enable=${{ github.ref_type == 'tag' }}
+            type=raw,value=hardcover-dev,enable=${{ github.ref_type != 'tag' }}
+            type=raw,value=hardcover-v${{ needs.build.outputs.build_version }},enable=${{ github.ref_type == 'tag' }}
+            type=sha,suffix=-hardcover
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        id: softcover_image
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          platforms: "linux/amd64,linux/arm64"
+          push: true
+          sbom: true
+          provenance: mode=max
+          tags: ${{ steps.gr_meta.outputs.tags }}
+          labels: ${{ steps.gr_meta.outputs.labels }}
+          build-args: |
+            GIT_BRANCH=${{ env.BUILD_SOURCEBRANCHNAME }}
+            COMMIT_HASH=${{ github.sha }}
+            BUILD_DATE=${{ env.DATE }}
+            IMAGE_VERSION=${{ needs.build.outputs.build_version }}
+            IMAGE_FLAVOR=softcover
+
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        id: hardcover_image
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          platforms: "linux/amd64,linux/arm64"
+          push: true
+          sbom: true
+          provenance: mode=max
+          tags: ${{ steps.hc_meta.outputs.tags }}
+          labels: ${{ steps.hc_meta.outputs.labels }}
+          build-args: |
+            GIT_BRANCH=${{ env.BUILD_SOURCEBRANCHNAME }}
+            COMMIT_HASH=${{ github.sha }}
+            BUILD_DATE=${{ env.DATE }}
+            IMAGE_VERSION=${{ needs.build.outputs.build_version }}
+            IMAGE_FLAVOR=hardcover
+            METADATA_URL=https://hardcover.bookinfo.pro
+            HARDCOVER=true
+
+      - name: Verify stable image tags share one manifest
+        env:
+          HARDCOVER_DIGEST: ${{ steps.hardcover_image.outputs.digest }}
+          HARDCOVER_VERSION_TAG: hardcover-v${{ needs.build.outputs.build_version }}
+        run: bash scripts/verify-stable-container-aliases.sh
+
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.softcover_image.outputs.digest }}
+          push-to-registry: true
+          create-storage-record: false
+
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.hardcover_image.outputs.digest }}
+          push-to-registry: true
+          create-storage-record: false
+
+  container-scan:
+    name: Scan published container images
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/main-') && vars.BOOKSHELFNG_RELEASE_READY == 'true'
+    needs: publish-images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+    steps:
+      - name: Scan Softcover image
+        id: softcover_scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}@${{ needs.publish-images.outputs.softcover_digest }}
+          format: sarif
+          output: trivy-softcover.sarif
+          severity: HIGH,CRITICAL
+          vuln-type: os,library
+          ignore-unfixed: true
+          exit-code: "0"
+
+      - name: Upload Softcover findings
+        if: steps.softcover_scan.outcome == 'success'
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          sarif_file: trivy-softcover.sarif
+          category: trivy-softcover
+
+      - name: Scan Hardcover image
+        id: hardcover_scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}@${{ needs.publish-images.outputs.hardcover_digest }}
+          format: sarif
+          output: trivy-hardcover.sarif
+          severity: HIGH,CRITICAL
+          vuln-type: os,library
+          ignore-unfixed: true
+          exit-code: "0"
+
+      - name: Upload Hardcover findings
+        if: steps.hardcover_scan.outcome == 'success'
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          sarif_file: trivy-hardcover.sarif
+          category: trivy-hardcover
+
+  release:
+    name: Prepare release notes and draft
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/main-') && vars.BOOKSHELFNG_RELEASE_READY == 'true'
+    needs: [build, publish-images]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+    outputs:
+      runtime_pack_run_id: ${{ steps.runtime-packs.outputs.run_id }}
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+      SOFTCOVER_DIGEST: ${{ needs.publish-images.outputs.softcover_digest }}
+      HARDCOVER_DIGEST: ${{ needs.publish-images.outputs.hardcover_digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate release tag and Discord configuration
+        shell: bash
+        env:
+          DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^main-v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "Invalid BookshelfNG release tag: $RELEASE_TAG" >&2
+            exit 2
+          }
+          bash scripts/validate-release-publisher-config.sh discord
+          test -n "$SOFTCOVER_DIGEST"
+          test -n "$HARDCOVER_DIGEST"
+
+      - name: Find reusable runtime-pack artifact
+        id: runtime-packs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          release_sha="$(git rev-parse "${RELEASE_TAG}^{commit}")"
+          artifacts_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100")"
+          runtime_pack_run_id=""
+
+          while IFS=$'\t' read -r created_at run_id artifact_sha; do
+            [[ -n "$run_id" && -n "$artifact_sha" ]] || continue
+            run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
+            runtime_pack_sha="$(jq -r '.head_sha' <<<"$run_json")"
+            runtime_pack_workflow="$(jq -r '.path' <<<"$run_json")"
+            [[ "$runtime_pack_sha" == "$artifact_sha" ]] || continue
+            case "$runtime_pack_workflow" in
+              .github/workflows/build.yml|.github/workflows/release-distribution.yml) ;;
+              *) continue ;;
+            esac
+            git merge-base --is-ancestor "$runtime_pack_sha" "$release_sha" || continue
+            git diff --quiet "$runtime_pack_sha" "$release_sha" -- \
+              scripts/build-dotnet10-platform-runtime-packs.sh \
+              src/Directory.Build.props src/NuGet.config || continue
+
+            git show "$runtime_pack_sha:.github/workflows/release-distribution.yml" \
+              | sed -n '/^  build-platform-runtime-packs:/,/^  build-release-assets:/p' \
+              | sed '$d' \
+              | sed "/^    if: inputs.runtime_pack_run_id == ''$/d" \
+              > "$RUNNER_TEMP/runtime-pack-source-job.yml"
+            git show "$release_sha:.github/workflows/release-distribution.yml" \
+              | sed -n '/^  build-platform-runtime-packs:/,/^  build-release-assets:/p' \
+              | sed '$d' \
+              | sed "/^    if: inputs.runtime_pack_run_id == ''$/d" \
+              > "$RUNNER_TEMP/runtime-pack-release-job.yml"
+            cmp -s "$RUNNER_TEMP/runtime-pack-source-job.yml" "$RUNNER_TEMP/runtime-pack-release-job.yml" || continue
+
+            jobs_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs?per_page=100")"
+            if jq -e '
+              any(.jobs[];
+                (.name | endswith("Build Linux x86 and FreeBSD .NET 10 runtime packs")) and
+                (
+                  .conclusion == "success" or
+                  (
+                    .conclusion == "cancelled" and
+                    any(.steps[]; .name == "Build and verify platform packs" and .conclusion == "success") and
+                    any(.steps[]; (.name | startswith("Run actions/upload-artifact@")) and .conclusion == "success")
+                  )
+                )
+              )
+            ' <<<"$jobs_json" >/dev/null; then
+              runtime_pack_run_id="$run_id"
+              echo "Selected compatible runtime-pack artifact from run $run_id (created $created_at)."
+              break
+            fi
+          done < <(
+            jq -r '
+              [.artifacts[]
+                | select(.name == "bookshelfng-platform-runtime-packs" and .expired == false)
+                | select(.workflow_run.id != null and .workflow_run.head_sha != null)
+                | [.created_at, (.workflow_run.id | tostring), .workflow_run.head_sha]]
+              | sort_by(.[0])
+              | reverse[]
+              | @tsv
+            ' <<<"$artifacts_json"
+          )
+
+          echo "run_id=$runtime_pack_run_id" >> "$GITHUB_OUTPUT"
+          if [[ -z "$runtime_pack_run_id" ]]; then
+            echo 'No compatible runtime-pack artifact found; the release workflow will build packs.'
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22.22.2'
+          package-manager-cache: false
+
+      - name: Install git-cliff
+        uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
+        with:
+          tool: git-cliff
+
+      - name: Generate curated release notes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          release_sha="$(git rev-parse "${RELEASE_TAG}^{commit}")"
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$release_sha" origin/main || {
+            echo "Release tag $RELEASE_TAG is not reachable from main." >&2
+            exit 1
+          }
+          previous_tag="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 \
+            --json isDraft,isPrerelease,publishedAt,tagName \
+            --jq '[.[] | select(.isDraft == false and .isPrerelease == false and (.tagName | startswith("main-v")))] | max_by(.publishedAt) | .tagName // empty')"
+          test -n "$previous_tag" || {
+            echo 'No previously published BookshelfNG release tag was found.' >&2
+            exit 1
+          }
+          git cat-file -e "${previous_tag}^{commit}"
+          notes_file="$RUNNER_TEMP/bookshelfng-release-notes.md"
+          # The changelog template uses local commit data only; avoid unnecessary remote API pagination.
+          git-cliff --offline --config .github/cliff.toml "${previous_tag}..${RELEASE_TAG}" --output "$notes_file"
+          node scripts/assemble-release-notes.mjs \
+            --previous-tag "$previous_tag" \
+            --head "$release_sha" \
+            --changelog "$notes_file" \
+            --output "$notes_file"
+          {
+            printf '\n\n### Container images\n\n'
+            printf '%s\n' "- Softcover: \`ghcr.io/${GITHUB_REPOSITORY}:softcover\` (digest \`${SOFTCOVER_DIGEST}\`)"
+            printf '%s\n' "- Hardcover: \`ghcr.io/${GITHUB_REPOSITORY}:hardcover\` (digest \`${HARDCOVER_DIGEST}\`)"
+          } >> "$notes_file"
+          if ! grep -Eq '^[[:space:]]*-[[:space:]]+' "$notes_file"; then
+            echo 'Generated release notes contain no entries.' >&2
+            exit 1
+          fi
+          echo "RELEASE_NOTES_FILE=$notes_file" >> "$GITHUB_ENV"
+          echo "RELEASE_VERSION=${RELEASE_TAG#main-v}" >> "$GITHUB_ENV"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          title="BookshelfNG ${RELEASE_VERSION}"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" --title "$title" --notes-file "$RELEASE_NOTES_FILE"
+          else
+            gh release create "$RELEASE_TAG" \
+              --verify-tag \
+              --draft \
+              --title "$title" \
+              --notes-file "$RELEASE_NOTES_FILE"
+          fi
+
+  distribution:
+    name: Build and publish standalone release channels
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/main-') && vars.BOOKSHELFNG_RELEASE_READY == 'true'
+    needs: [publish-images, release]
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+      id-token: write
+    uses: ./.github/workflows/release-distribution.yml
+    with:
+      tag: ${{ github.ref_name }}
+      softcover_digest: ${{ needs.publish-images.outputs.softcover_digest }}
+      hardcover_digest: ${{ needs.publish-images.outputs.hardcover_digest }}
+      runtime_pack_run_id: ${{ needs.release.outputs.runtime_pack_run_id }}
+    secrets: inherit

@@ -1,0 +1,75 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <PropertyGroup>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
+    <PackageVersion Include="System.Security.Permissions" Version="10.0.12" />
+    <PackageVersion Include="AutoFixture" Version="4.18.1" />
+    <PackageVersion Include="coverlet.collector" Version="3.0.4-preview.27.ge7cb7c3b40" PrivateAssets="all" />
+    <PackageVersion Include="Dapper" Version="2.1.89" />
+    <PackageVersion Include="Diacritical.Net" Version="1.0.5" />
+    <PackageVersion Include="DryIoc.dll" Version="5.4.3" />
+    <PackageVersion Include="DryIoc.Microsoft.DependencyInjection" Version="6.2.0" />
+    <PackageVersion Include="Equ" Version="2.3.0" />
+    <PackageVersion Include="FluentAssertions" Version="5.10.3" />
+    <PackageVersion Include="IPAddressRange" Version="6.3.0" />
+    <PackageVersion Include="Polly" Version="8.8.0" />
+    <PackageVersion Include="Servarr.FluentMigrator.Runner.SQLite" Version="5.2.0.10" />
+    <PackageVersion Include="Servarr.FluentMigrator.Runner.Postgres" Version="5.2.0.10" />
+    <PackageVersion Include="FluentValidation" Version="9.5.4" />
+    <PackageVersion Include="Ical.Net" Version="5.2.3" />
+    <PackageVersion Include="ImpromptuInterface" Version="8.1.0" />
+    <PackageVersion Include="LazyCache" Version="2.4.0" />
+    <PackageVersion Include="Mailkit" Version="4.18.1" />
+    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Data.SqlClient" Version="7.1.1" />
+    <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.23.0" />
+    <PackageVersion Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.23.0" />
+    <PackageVersion Include="Microsoft.Playwright" Version="1.63.0" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+    <PackageVersion Include="Microsoft.Win32.Registry" Version="5.0.0" />
+    <PackageVersion Include="Mono.Posix.NETStandard" Version="5.20.1.34-servarr22" />
+    <PackageVersion Include="Moq" Version="4.21.0" />
+    <PackageVersion Include="MonoTorrent" Version="3.0.2" />
+    <PackageVersion Include="NBuilder" Version="6.1.0" />
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageVersion Include="NLog.Extensions.Logging" Version="6.2.1" />
+    <PackageVersion Include="NLog" Version="6.2.1" />
+    <PackageVersion Include="NLog.Targets.Syslog" Version="7.0.0" />
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
+    <PackageVersion Include="NUnit3TestAdapter" Version="4.6.0" />
+    <PackageVersion Include="NUnit" Version="5.0.0" />
+    <PackageVersion Include="NunitXml.TestLogger" Version="3.1.20" />
+    <PackageVersion Include="PDFsharp" Version="6.5.0" />
+    <PackageVersion Include="RestSharp.Serializers.SystemTextJson" Version="106.15.0" />
+    <PackageVersion Include="RestSharp" Version="106.15.0" />
+    <PackageVersion Include="Selenium.Support" Version="3.141.0" />
+    <PackageVersion Include="Selenium.WebDriver.ChromeDriver" Version="155.0.8059.7900" />
+    <PackageVersion Include="SharpZipLib" Version="1.4.2" />
+    <PackageVersion Include="SkiaSharp" Version="4.153.1" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.1" />
+    <PackageVersion Include="StyleCop.Analyzers" Version="1.1.118" />
+    <PackageVersion Include="Swashbuckle.AspNetCore.Annotations" Version="10.3.0" />
+    <PackageVersion Include="Swashbuckle.AspNetCore.SwaggerGen" Version="10.3.0" />
+    <PackageVersion Include="System.Configuration.ConfigurationManager" Version="10.0.13" />
+    <PackageVersion Include="System.Data.SQLite.Core.Servarr" Version="1.0.115.5-18" />
+    <PackageVersion Include="System.IO.Abstractions.TestingHelpers" Version="17.2.26" />
+    <PackageVersion Include="System.IO.Abstractions" Version="17.2.26" />
+    <PackageVersion Include="System.IO.FileSystem.AccessControl" Version="5.0.0" />
+    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.23.0" />
+    <PackageVersion Include="System.Reflection.TypeExtensions" Version="4.7.0" />
+    <PackageVersion Include="System.Resources.Extensions" Version="10.0.13" />
+    <PackageVersion Include="System.ServiceProcess.ServiceController" Version="10.0.13" />
+    <PackageVersion Include="System.Text.Encoding.CodePages" Version="10.0.12" />
+    <PackageVersion Include="System.Text.Json" Version="10.0.12" />
+    <PackageVersion Include="System.ValueTuple" Version="4.6.2" />
+  </ItemGroup>
+</Project>

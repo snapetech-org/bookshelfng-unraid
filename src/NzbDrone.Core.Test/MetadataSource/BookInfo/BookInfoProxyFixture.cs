@@ -1,0 +1,215 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using FluentAssertions;
+using Moq;
+using NUnit.Framework;
+using NzbDrone.Common.Http;
+using NzbDrone.Core.Books;
+using NzbDrone.Core.Configuration;
+using NzbDrone.Core.Exceptions;
+using NzbDrone.Core.Http;
+using NzbDrone.Core.MetadataSource.BookInfo;
+using NzbDrone.Core.Profiles.Metadata;
+using NzbDrone.Core.Test.Framework;
+using NzbDrone.Core.Test.MetadataSource.BookInfo;
+
+namespace NzbDrone.Core.Test.MetadataSource.Goodreads
+{
+    [TestFixture]
+    public class BookInfoProxyFixture : CoreTest<BookInfoProxy>
+    {
+        private MetadataProfile _metadataProfile;
+
+        [SetUp]
+        public void Setup()
+        {
+            UseRealHttp();
+
+            Mocker.GetMock<ICachedHttpResponseService>()
+                .Setup(x => x.Get(It.IsAny<HttpRequest>(), It.IsAny<bool>(), It.IsAny<TimeSpan>()))
+                .Returns((HttpRequest request, bool useCache, TimeSpan ttl) => BookInfoTestData.DetailResponse(request));
+
+            Mocker.GetMock<IHttpClient>()
+                .Setup(x => x.Get(It.IsAny<HttpRequest>()))
+                .Returns<HttpRequest>(request =>
+                    request.Url.Path.Trim('/').StartsWith("book/", StringComparison.Ordinal)
+                        ? BookInfoTestData.EditionLookupResponse(request)
+                        : BookInfoTestData.DetailResponse(request));
+
+            _metadataProfile = new MetadataProfile();
+
+            Mocker.GetMock<IMetadataProfileService>()
+                .Setup(s => s.Get(It.IsAny<int>()))
+                .Returns(_metadataProfile);
+
+            Mocker.GetMock<IMetadataProfileService>()
+                .Setup(s => s.Exists(It.IsAny<int>()))
+                .Returns(true);
+
+            Mocker.GetMock<IConfigService>()
+                .Setup(s => s.MetadataSource)
+                .Returns("https://api.bookinfo.pro");
+        }
+
+        [TestCase("1654", "Terry Pratchett")]
+        [TestCase("575", "Robert Harris")]
+        public void should_be_able_to_get_author_detail(string mbId, string name)
+        {
+            var details = Subject.GetAuthorInfo(mbId);
+
+            ValidateAuthor(details);
+
+            details.Name.Should().Be(name);
+        }
+
+        [Test]
+        public void should_keep_author_endpoint_works_when_nested_author_ids_differ()
+        {
+            var author = BookInfoTestData.Author(1, "Catalog Author", 123);
+            author.Works[0].Authors = new List<AuthorResource>
+            {
+                new AuthorResource { ForeignId = 999, Name = "Different Contributor" }
+            };
+            author.Works[0].Books[0].Contributors = new List<ContributorResource>
+            {
+                new ContributorResource { ForeignId = 999 }
+            };
+
+            Mocker.GetMock<ICachedHttpResponseService>()
+                .Setup(x => x.Get(
+                    It.Is<HttpRequest>(request => request.Url.Path.Trim('/') == "author/1"),
+                    It.IsAny<bool>(),
+                    It.IsAny<TimeSpan>()))
+                .Returns((HttpRequest request, bool useCache, TimeSpan ttl) =>
+                    BookInfoTestData.JsonResponse(request, author));
+
+            var result = Subject.GetAuthorInfo("1");
+
+            result.Books.Value.Should().ContainSingle();
+            result.Books.Value[0].ForeignBookId.Should().Be("123");
+        }
+
+        [Test]
+        public void should_skip_incomplete_author_works_without_failing_author_add()
+        {
+            var author = BookInfoTestData.Author(1, "Catalog Author", 123);
+            author.Works[0].Title = null;
+            author.Works[0].Books[0].Title = null;
+
+            Mocker.GetMock<ICachedHttpResponseService>()
+                .Setup(x => x.Get(
+                    It.Is<HttpRequest>(request => request.Url.Path.Trim('/') == "author/1"),
+                    It.IsAny<bool>(),
+                    It.IsAny<TimeSpan>()))
+                .Returns((HttpRequest request, bool useCache, TimeSpan ttl) =>
+                    BookInfoTestData.JsonResponse(request, author));
+
+            var result = Subject.GetAuthorInfo("1");
+
+            result.Name.Should().Be("Catalog Author");
+            result.Books.Value.Should().BeEmpty();
+        }
+
+        [Test]
+        public void should_ignore_incomplete_editions_and_keep_the_valid_author_work()
+        {
+            var author = BookInfoTestData.Author(1, "Catalog Author", 123);
+            author.Works[0].Books[0].Title = null;
+
+            Mocker.GetMock<ICachedHttpResponseService>()
+                .Setup(x => x.Get(
+                    It.Is<HttpRequest>(request => request.Url.Path.Trim('/') == "author/1"),
+                    It.IsAny<bool>(),
+                    It.IsAny<TimeSpan>()))
+                .Returns((HttpRequest request, bool useCache, TimeSpan ttl) =>
+                    BookInfoTestData.JsonResponse(request, author));
+
+            var result = Subject.GetAuthorInfo("1");
+
+            result.Name.Should().Be("Catalog Author");
+            result.Books.Value.Should().ContainSingle();
+            result.Books.Value[0].Title.Should().Be("Catalog Author test work");
+            result.Books.Value[0].Editions.Value.Should().BeEmpty();
+        }
+
+        [TestCase("1128601", "Guards! Guards!")]
+        [TestCase("3293141", "The Iliad")]
+        public void should_be_able_to_get_book_detail(string mbId, string name)
+        {
+            var details = Subject.GetBookInfo(mbId);
+
+            ValidateBooks(new List<Book> { details.Item2 });
+
+            details.Item2.Title.Should().Be(name);
+        }
+
+        [TestCase("14190696", "The Book of Dust", "1")]
+        [TestCase("48427681", "October Daye Chronological Order", "7.1")]
+        public void should_parse_series_from_title(string id, string series, string position)
+        {
+            var result = Subject.GetBookInfo(id);
+
+            var link = result.Item2.SeriesLinks.Value.OrderBy(x => x.SeriesPosition).First();
+            link.Series.Value.Title.Should().Be(series);
+            link.Position.Should().Be(position);
+        }
+
+        [Test]
+        public void getting_details_of_invalid_author()
+        {
+            Assert.Throws<AuthorNotFoundException>(() => Subject.GetAuthorInfo("1"));
+        }
+
+        [Test]
+        public void getting_details_of_invalid_book()
+        {
+            Assert.Throws<BookNotFoundException>(() => Subject.GetBookInfo("1"));
+        }
+
+        private void ValidateAuthor(Author author)
+        {
+            author.Should().NotBeNull();
+            author.Name.Should().NotBeNullOrWhiteSpace();
+            author.CleanName.Should().Be(Parser.Parser.CleanAuthorName(author.Name));
+            author.Metadata.Value.TitleSlug.Should().NotBeNullOrWhiteSpace();
+            author.Metadata.Value.Overview.Should().NotBeNullOrWhiteSpace();
+            author.Metadata.Value.Images.Should().NotBeEmpty();
+            author.ForeignAuthorId.Should().NotBeNullOrWhiteSpace();
+        }
+
+        private void ValidateBooks(List<Book> books, bool idOnly = false)
+        {
+            books.Should().NotBeEmpty();
+
+            foreach (var book in books)
+            {
+                book.ForeignBookId.Should().NotBeNullOrWhiteSpace();
+                if (!idOnly)
+                {
+                    ValidateBook(book);
+                }
+            }
+
+            //if atleast one book has title it means parse it working.
+            if (!idOnly)
+            {
+                books.Should().Contain(c => !string.IsNullOrWhiteSpace(c.Title));
+            }
+        }
+
+        private void ValidateBook(Book book)
+        {
+            book.Should().NotBeNull();
+
+            book.Title.Should().NotBeNullOrWhiteSpace();
+
+            book.Should().NotBeNull();
+
+            if (book.ReleaseDate.HasValue)
+            {
+                book.ReleaseDate.Value.Kind.Should().Be(DateTimeKind.Utc);
+            }
+        }
+    }
+}
