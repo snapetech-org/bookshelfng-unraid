@@ -4,6 +4,7 @@
 .editorconfig
 .gitattributes
 .githooks/post-commit
+.githooks/pre-commit
 .githooks/pre-push
 .githooks/sync-packages.sh
 .github/FUNDING.yml
@@ -20,6 +21,8 @@
 .github/workflows/release-notes.yml
 .github/workflows/retry-release-distribution.yml
 .github/workflows/security.yml
+.github/workflows/semgrep-community.yml
+.github/workflows/trivy-filesystem.yml
 .gitignore
 .vscode/extensions.json
 .vscode/launch.json
@@ -130,6 +133,7 @@ docs/media-storage.md
 docs/migrate-from-bookshelfng-to-chaptarrng.md
 docs/reporting-issues.md
 docs/search-and-downloads.md
+docs/security-scanning.md
 docs/seerrng-integration.md
 docs/series-pack-search.md
 docs/standalone-install.md
@@ -2163,11 +2167,13 @@ scripts/create-consolidation-fixture.py
 scripts/create-release-archives.sh
 scripts/install-dotnet10-platform-runtime.sh
 scripts/install-package-sync-hook.sh
+scripts/install-security-hooks.sh
 scripts/preview-release-notes.mjs
 scripts/probe-lineage-guard.py
 scripts/release-notes.mjs
 scripts/release-notes.test.mjs
 scripts/require-bookshelfng-release-ready.sh
+scripts/security-scan-local.sh
 scripts/sync-unraid-package.sh
 scripts/test-audit-chaptarr-consolidation.py
 scripts/test-bookshelfng-release-readiness-gate.sh
@@ -2176,6 +2182,7 @@ scripts/test-chaptarrng-release-bridge.sh
 scripts/test-copr-source.sh
 scripts/test-sync-unraid-package.sh
 scripts/test_workflow_runner_policy.py
+scripts/update-security-tools.sh
 scripts/validate-release-publisher-config.sh
 scripts/validate-release-publisher-config.test.mjs
 scripts/validation-engine/config.mjs
