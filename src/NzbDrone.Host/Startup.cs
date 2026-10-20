@@ -1,0 +1,388 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Net;
+using System.Threading.RateLimiting;
+using DryIoc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.OpenApi;
+using NLog.Extensions.Logging;
+using NzbDrone.Common.EnvironmentInfo;
+using NzbDrone.Common.Instrumentation;
+using NzbDrone.Common.Processes;
+using NzbDrone.Common.Serializer;
+using NzbDrone.Core.Configuration;
+using NzbDrone.Core.Datastore;
+using NzbDrone.Core.Instrumentation;
+using NzbDrone.Core.Lifecycle;
+using NzbDrone.Core.Messaging.Events;
+using NzbDrone.Host.AccessControl;
+using NzbDrone.Http.Authentication;
+using NzbDrone.SignalR;
+using Readarr.Api.V1.System;
+using Readarr.Http;
+using Readarr.Http.Authentication;
+using Readarr.Http.ClientSchema;
+using Readarr.Http.ErrorManagement;
+using Readarr.Http.Frontend;
+using Readarr.Http.Middleware;
+using LogLevel = Microsoft.Extensions.Logging.LogLevel;
+
+namespace NzbDrone.Host
+{
+    public class Startup
+    {
+        public Startup(IConfiguration configuration)
+        {
+            Configuration = configuration;
+        }
+
+        public IConfiguration Configuration { get; }
+
+        public void ConfigureServices(IServiceCollection services)
+        {
+            services.AddLogging(b =>
+            {
+                b.ClearProviders();
+                b.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Trace);
+                b.AddFilter("Microsoft.AspNetCore", Microsoft.Extensions.Logging.LogLevel.Warning);
+                b.AddFilter("Readarr.Http.Authentication", LogLevel.Information);
+                b.AddFilter("Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager", LogLevel.Error);
+                b.AddNLog();
+            });
+
+            services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+                options.ForwardLimit = 1;
+                options.RequireHeaderSymmetry = true;
+
+                var trustedProxies = Configuration["Readarr:Server:TrustedProxies"];
+                foreach (var proxy in (trustedProxies ?? string.Empty)
+                    .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    if (proxy.Contains('/'))
+                    {
+                        options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(proxy));
+                    }
+                    else
+                    {
+                        options.KnownProxies.Add(IPAddress.Parse(proxy));
+                    }
+                }
+            });
+
+            services.AddRouting(options => options.LowercaseUrls = true);
+
+            services.AddResponseCompression(options => options.EnableForHttps = true);
+
+            var allowedOrigins = (Configuration["Readarr:Server:AllowedOrigins"] ?? string.Empty)
+                .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            services.AddCors(options =>
+            {
+                options.AddPolicy(VersionedApiControllerAttribute.API_CORS_POLICY,
+                    builder =>
+                    {
+                        builder.AllowAnyMethod()
+                            .AllowAnyHeader()
+                            .WithExposedHeaders("X-Bookshelf-Request-Id");
+
+                        if (allowedOrigins.Length > 0)
+                        {
+                            builder.WithOrigins(allowedOrigins);
+                        }
+                    });
+
+                options.AddPolicy("AllowGet",
+                    builder =>
+                    {
+                        builder.WithMethods("GET", "OPTIONS")
+                            .AllowAnyHeader()
+                            .WithExposedHeaders("X-Bookshelf-Request-Id");
+
+                        if (allowedOrigins.Length > 0)
+                        {
+                            builder.WithOrigins(allowedOrigins);
+                        }
+                    });
+            });
+
+            services.AddRateLimiter(options =>
+            {
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+                var requestsPerMinute = Math.Clamp(
+                    Configuration.GetValue<int?>("Readarr:Server:RequestsPerMinute") ?? 600,
+                    60,
+                    6000);
+                options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = requestsPerMinute,
+                            Window = TimeSpan.FromMinutes(1),
+                            QueueLimit = 0,
+                            AutoReplenishment = true
+                        }));
+                options.OnRejected = (context, _) =>
+                {
+                    context.HttpContext.Response.Headers["Retry-After"] = "60";
+                    return System.Threading.Tasks.ValueTask.CompletedTask;
+                };
+            });
+
+            services
+            .AddControllers(options =>
+            {
+                options.ReturnHttpNotAcceptable = true;
+            })
+            .AddApplicationPart(typeof(SystemController).Assembly)
+            .AddApplicationPart(typeof(StaticResourceController).Assembly)
+            .AddJsonOptions(options =>
+            {
+                STJson.ApplySerializerSettings(options.JsonSerializerOptions);
+            })
+            .AddControllersAsServices();
+
+            services.Configure<ApiBehaviorOptions>(options =>
+            {
+                // AutoAddServices registers API resource DTOs as concrete services.
+                // Keep complex API action parameters bound from request bodies.
+                options.DisableImplicitFromServicesParameters = true;
+            });
+
+            services.AddSwaggerGen(c =>
+            {
+                c.SwaggerDoc("v1", new OpenApiInfo
+                {
+                    Version = "1.0.0",
+                    Title = "BookshelfNG",
+                    Description = "BookshelfNG API docs",
+                    License = new OpenApiLicense
+                    {
+                        Name = "GPL-3.0",
+                        Url = new Uri("https://github.com/snapetech-org/bookshelfng/blob/main/LICENSE.md")
+                    }
+                });
+
+                var apiKeyHeader = new OpenApiSecurityScheme
+                {
+                    Name = "X-Api-Key",
+                    Type = SecuritySchemeType.ApiKey,
+                    Scheme = "apiKey",
+                    Description = "API key passed in the X-Api-Key header (recommended).",
+                    In = ParameterLocation.Header,
+                };
+
+                c.AddSecurityDefinition("X-Api-Key", apiKeyHeader);
+
+                var apiKeyQuery = new OpenApiSecurityScheme
+                {
+                    Name = "apikey",
+                    Type = SecuritySchemeType.ApiKey,
+                    Scheme = "apiKey",
+                    Description = "Legacy API key passed as the apikey query parameter. Disable with BOOKSHELF_ALLOW_API_KEY_QUERY=false.",
+                    In = ParameterLocation.Query,
+                };
+
+                c.AddSecurityDefinition("apikey", apiKeyQuery);
+
+                c.AddSecurityRequirement(document =>
+                {
+                    var requirement = new OpenApiSecurityRequirement();
+                    requirement.Add(new OpenApiSecuritySchemeReference("X-Api-Key", document), new List<string>());
+                    return requirement;
+                });
+
+                c.AddSecurityRequirement(document =>
+                {
+                    var requirement = new OpenApiSecurityRequirement();
+                    requirement.Add(new OpenApiSecuritySchemeReference("apikey", document), new List<string>());
+                    return requirement;
+                });
+
+                c.AddServer(new OpenApiServer
+                {
+                    Url = "{protocol}://{hostpath}",
+                    Variables = new Dictionary<string, OpenApiServerVariable>
+                    {
+                        { "protocol", new OpenApiServerVariable { Default = "http", Enum = new List<string> { "http", "https" } } },
+                        { "hostpath", new OpenApiServerVariable { Default = "localhost:8787" } }
+                    }
+                });
+
+                c.DescribeAllParametersInCamelCase();
+            });
+
+            services
+            .AddSignalR()
+            .AddJsonProtocol(options =>
+            {
+                options.PayloadSerializerOptions = STJson.GetSerializerSettings();
+            });
+
+            services.AddDataProtection()
+                .PersistKeysToFileSystem(new DirectoryInfo(Configuration["dataProtectionFolder"]));
+
+            services.AddSingleton<IAuthorizationPolicyProvider, UiAuthorizationPolicyProvider>();
+            services.AddSingleton<IAuthorizationHandler, UiAuthorizationHandler>();
+
+            services.AddAuthorization(options =>
+            {
+                options.AddPolicy("AdminApiKey", policy =>
+                {
+                    policy.AuthenticationSchemes.Add("API");
+                    policy.RequireClaim("ApiKey", "true");
+                });
+
+                options.AddPolicy("SignalR", policy =>
+                {
+                    policy.AuthenticationSchemes.Add("SignalR");
+                    policy.RequireAuthenticatedUser();
+                });
+
+                // Require auth on everything except those marked [AllowAnonymous]
+                options.FallbackPolicy = new AuthorizationPolicyBuilder("API")
+                .RequireAuthenticatedUser()
+                .Build();
+            });
+
+            services.AddAppAuthentication();
+        }
+
+        public void Configure(IApplicationBuilder app,
+                              IContainer container,
+                              IStartupContext startupContext,
+                              Lazy<IMainDatabase> mainDatabaseFactory,
+                              Lazy<ILogDatabase> logDatabaseFactory,
+                              Lazy<ICacheDatabase> cacheDatabaseFactory,
+                              DatabaseTarget dbTarget,
+                              ISingleInstancePolicy singleInstancePolicy,
+                              InitializeLogger initializeLogger,
+                              ReconfigureLogging reconfigureLogging,
+                              FirstRunAuthenticationSetup firstRunAuthenticationSetup,
+                              IAppFolderFactory appFolderFactory,
+                              IProvidePidFile pidFileProvider,
+                              IConfigFileProvider configFileProvider,
+                              IRuntimeInfo runtimeInfo,
+                              IFirewallAdapter firewallAdapter,
+                              IEventAggregator eventAggregator,
+                              ReadarrErrorPipeline errorHandler)
+        {
+            initializeLogger.Initialize();
+            appFolderFactory.Register();
+            pidFileProvider.Write();
+
+            configFileProvider.EnsureDefaultConfigFile();
+
+            reconfigureLogging.Reconfigure();
+
+            EnsureSingleInstance(false, startupContext, singleInstancePolicy);
+
+            // instantiate the databases to initialize/migrate them
+            _ = mainDatabaseFactory.Value;
+            _ = logDatabaseFactory.Value;
+            _ = cacheDatabaseFactory.Value;
+
+            dbTarget.Register();
+            SchemaBuilder.Initialize(container);
+            firstRunAuthenticationSetup.EnsureInitialAccountSetup();
+
+            if (configFileProvider.AuthenticationMethod == NzbDrone.Core.Authentication.AuthenticationType.None &&
+                configFileProvider.BindAddress != "127.0.0.1" && configFileProvider.BindAddress != "::1" &&
+                configFileProvider.BindAddress != "localhost")
+            {
+                NLog.LogManager.GetLogger("Security").Warn("Authentication is disabled while BookshelfNG is bound to a non-loopback address. The UI initialization endpoint exposes the API key to authenticated UI sessions; enable Forms or Basic authentication before exposing this listener.");
+            }
+
+            if (OsInfo.IsNotWindows)
+            {
+                Console.CancelKeyPress += (sender, eventArgs) => NLog.LogManager.Configuration = null;
+            }
+
+            eventAggregator.PublishEvent(new ApplicationStartingEvent());
+
+            if (OsInfo.IsWindows && runtimeInfo.IsAdmin)
+            {
+                firewallAdapter.MakeAccessible();
+            }
+
+            app.UseForwardedHeaders();
+            app.UseMiddleware<LoggingMiddleware>();
+            app.UsePathBase(new PathString(configFileProvider.UrlBase));
+            app.UseExceptionHandler(new ExceptionHandlerOptions
+            {
+                AllowStatusCode404Response = true,
+                ExceptionHandler = errorHandler.HandleException
+            });
+
+            app.UseMiddleware<SecurityHeadersMiddleware>();
+            app.UseMiddleware<SeerrIntegrationPathMiddleware>();
+            app.UseRouting();
+            app.UseRateLimiter();
+            app.UseCors();
+            app.UseAuthentication();
+            app.UseAuthorization();
+            app.UseResponseCompression();
+            app.Properties["host.AppName"] = BuildInfo.AppName;
+
+            app.UseMiddleware<VersionMiddleware>();
+            app.UseMiddleware<UrlBaseMiddleware>(configFileProvider.UrlBase);
+            app.UseMiddleware<StartingUpMiddleware>();
+            app.UseMiddleware<CacheHeaderMiddleware>();
+            app.UseMiddleware<IfModifiedMiddleware>();
+            app.UseMiddleware<BufferingMiddleware>(new List<string> { "/api/v1/command" });
+
+            app.UseWebSockets();
+
+            // Enable middleware to serve generated Swagger as a JSON endpoint.
+            if (BuildInfo.IsDebug)
+            {
+                app.UseSwagger(c =>
+                {
+                    c.RouteTemplate = "docs/{documentName}/openapi.json";
+                });
+            }
+
+            app.UseEndpoints(x =>
+            {
+                x.MapHub<MessageHub>("/signalr/messages").RequireAuthorization("SignalR");
+                x.MapControllers();
+            });
+        }
+
+        private void EnsureSingleInstance(bool isService, IStartupContext startupContext, ISingleInstancePolicy instancePolicy)
+        {
+            if (startupContext.Flags.Contains(StartupContext.NO_SINGLE_INSTANCE_CHECK))
+            {
+                return;
+            }
+
+            if (startupContext.Flags.Contains(StartupContext.TERMINATE))
+            {
+                instancePolicy.KillAllOtherInstance();
+            }
+            else if (startupContext.Args.ContainsKey(StartupContext.APPDATA))
+            {
+                instancePolicy.WarnIfAlreadyRunning();
+            }
+            else if (isService)
+            {
+                instancePolicy.KillAllOtherInstance();
+            }
+            else
+            {
+                instancePolicy.PreventStartIfAlreadyRunning();
+            }
+        }
+    }
+}
