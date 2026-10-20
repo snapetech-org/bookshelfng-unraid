@@ -32,7 +32,7 @@ SeerrNG integration is optional.
 >
 > **Unraid transition:** [PR #5](https://github.com/snapetech-org/bookshelfng-unraid/pull/5)
 > remains draft at current documentation head
-> `697ae718ada609d2fdb0a91fd43e381d71d02f48`. The last template-preservation
+> `6ae104976df445f8def9dabae6f10c3cda2c92d4`. The last template-preservation
 > check [39358120264](https://github.com/snapetech-org/bookshelfng-unraid/actions/runs/39358120264)
 > passed on code head `434138d5654c7b284b92e411423f919b13a32b3e`; the later
 > documentation-only commit leaves the template unchanged. This check covers
