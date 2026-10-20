@@ -2143,6 +2143,7 @@ release-notes/improved-ui-and-api-diagnostics.md
 release-notes/jellyfin-books-folder-layout.md
 release-notes/metadata-sidecars-follow-format-paths.md
 release-notes/report-package-channel-status.md
+release-notes/require-explicit-bookshelf-provider-mode.md
 release-notes/security-api-auth-and-proxy-defaults.md
 release-notes/security-booklore-login-redirects.md
 release-notes/security-cross-origin-redirects.md
