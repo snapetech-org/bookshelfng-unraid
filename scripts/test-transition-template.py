@@ -2,7 +2,7 @@
 """Check that the legacy Unraid entry is a safe ChaptarrNG handoff."""
 
 from pathlib import Path
-import xml.etree.ElementTree as ET
+from defusedxml import ElementTree as ET
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -10,7 +10,7 @@ TEMPLATE = ROOT / "templates" / "bookshelfng.xml"
 
 
 def main() -> None:
-    container = ET.parse(TEMPLATE).getroot()
+    container = ET.parse(TEMPLATE, forbid_dtd=True).getroot()
 
     def value(name: str) -> str:
         node = container.find(name)
