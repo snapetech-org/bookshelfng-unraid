@@ -19,7 +19,6 @@ RUN apk add -U --upgrade --no-cache \
     ffmpeg \
     chromium-headless-shell \
     icu-libs \
-    icu-data-full \
     sqlite-libs \
     xmlstarlet
 

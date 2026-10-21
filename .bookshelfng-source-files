@@ -2020,9 +2020,6 @@ release-notes/2026-10-13-bookshelf-chaptarr-transition-guidance.md
 release-notes/2026-10-17-unraid-main-image-channel.md
 release-notes/2026-10-19-stable-container-aliases.md
 release-notes/2026-10-19-synced-stable-container-aliases.md
-release-notes/2026-10-21-oidc-login-accessibility.md
-release-notes/2026-10-21-oidc-operator-docs.md
-release-notes/2026-10-21-oidc-sign-in.md
 release-notes/20260925-catalog-packaging.md
 release-notes/20261011-validation-engine.md
 release-notes/20261012-postcss-selector-parser-security.md
@@ -2036,7 +2033,6 @@ release-notes/20261013-pr-runner-isolation.md
 release-notes/20261014-org-repository-links.md
 release-notes/20261014-trusted-main-runner-pool.md
 release-notes/20261014-validation-permission-results.md
-release-notes/20261021-alpine-icu-data.md
 release-notes/README.md
 release-notes/accept-library-of-congress-record-urls.md
 release-notes/add-standalone-distributions.md
@@ -2161,6 +2157,7 @@ release-notes/security-prevent-forged-download-and-media-move-logs.md
 release-notes/seerrng-edition-catalog.md
 release-notes/yunohost-package.md
 schemas/torznab.xsd
+scripts/__pycache__/audit-chaptarr-consolidation.cpython-314.pyc
 scripts/assemble-release-notes.mjs
 scripts/audit-chaptarr-consolidation.py
 scripts/bookshelf-bulk-move-media.sh
