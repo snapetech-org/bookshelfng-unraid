@@ -132,6 +132,7 @@ docs/maintainers/dependency-security.md
 docs/maintainers/setup-experience-contract.md
 docs/media-storage.md
 docs/migrate-from-bookshelfng-to-chaptarrng.md
+docs/oidc-authentication.md
 docs/reporting-issues.md
 docs/search-and-downloads.md
 docs/security-scanning.md
@@ -1096,6 +1097,7 @@ frontend/src/Content/Images/Icons/mstile-70x70.png
 frontend/src/Content/Images/Icons/safari-pinned-tab.svg
 frontend/src/Content/Images/error.png
 frontend/src/Content/Images/logo.svg
+frontend/src/Content/Images/oidc-provider-icons.svg
 frontend/src/Content/Images/poster-dark-square.png
 frontend/src/Content/Images/poster-dark.png
 frontend/src/Content/robots.txt
@@ -2018,6 +2020,9 @@ release-notes/2026-10-13-bookshelf-chaptarr-transition-guidance.md
 release-notes/2026-10-17-unraid-main-image-channel.md
 release-notes/2026-10-19-stable-container-aliases.md
 release-notes/2026-10-19-synced-stable-container-aliases.md
+release-notes/2026-10-21-oidc-login-accessibility.md
+release-notes/2026-10-21-oidc-operator-docs.md
+release-notes/2026-10-21-oidc-sign-in.md
 release-notes/20260925-catalog-packaging.md
 release-notes/20261011-validation-engine.md
 release-notes/20261012-postcss-selector-parser-security.md
@@ -4552,6 +4557,7 @@ src/Readarr.Http/Authentication/BypassableDenyAnonymousAuthorizationRequirement.
 src/Readarr.Http/Authentication/FirstRunAuthenticationSetup.cs
 src/Readarr.Http/Authentication/LoginResource.cs
 src/Readarr.Http/Authentication/NoAuthenticationHandler.cs
+src/Readarr.Http/Authentication/OidcBackchannelHandler.cs
 src/Readarr.Http/Authentication/UiAuthorizationHandler.cs
 src/Readarr.Http/Authentication/UiAuthorizationPolicyProvider.cs
 src/Readarr.Http/ClientSchema/Field.cs
