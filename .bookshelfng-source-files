@@ -2020,6 +2020,8 @@ release-notes/2026-10-13-bookshelf-chaptarr-transition-guidance.md
 release-notes/2026-10-17-unraid-main-image-channel.md
 release-notes/2026-10-19-stable-container-aliases.md
 release-notes/2026-10-19-synced-stable-container-aliases.md
+release-notes/2026-10-21-final-release-migration-status.md
+release-notes/2026-10-21-maintained-build-runtime.md
 release-notes/2026-10-21-oidc-login-accessibility.md
 release-notes/2026-10-21-oidc-operator-docs.md
 release-notes/2026-10-21-oidc-sign-in.md
@@ -2037,6 +2039,7 @@ release-notes/20261014-org-repository-links.md
 release-notes/20261014-trusted-main-runner-pool.md
 release-notes/20261014-validation-permission-results.md
 release-notes/20261021-alpine-icu-data.md
+release-notes/20261021-file-system-abstractions.md
 release-notes/README.md
 release-notes/accept-library-of-congress-record-urls.md
 release-notes/add-standalone-distributions.md
