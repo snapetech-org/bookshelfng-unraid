@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "templates/bookshelfng.xml"
+      - "requirements-transition-test.txt"
       - "scripts/test-transition-template.py"
       - ".github/workflows/transition-template.yml"
   push:
@@ -11,6 +12,7 @@ on:
       - main
     paths:
       - "templates/bookshelfng.xml"
+      - "requirements-transition-test.txt"
       - "scripts/test-transition-template.py"
 
 permissions:
@@ -27,6 +29,9 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Install safe XML parser
+        run: python3 -m pip install -r requirements-transition-test.txt
 
       - name: Validate preserved identity and settings
         run: python3 scripts/test-transition-template.py
