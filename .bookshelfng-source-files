@@ -111,7 +111,6 @@ docs/author-metadata-refresh.md
 docs/booklore-integration.md
 docs/capabilities-and-compatibility.md
 docs/catalog-metadata-and-unmapped-files.md
-docs/development/validation-engine.md
 docs/distribution.md
 docs/dotnet-10-platform-builds.md
 docs/encrypted-backups.md
@@ -2203,9 +2202,6 @@ scripts/test_workflow_runner_policy.py
 scripts/update-security-tools.sh
 scripts/validate-release-publisher-config.sh
 scripts/validate-release-publisher-config.test.mjs
-scripts/validation-engine/config.mjs
-scripts/validation-engine/engine.mjs
-scripts/validation-engine/engine.test.mjs
 scripts/verify-chocolatey-package.ps1
 scripts/verify-package-sync.sh
 scripts/verify-stable-container-aliases.sh
