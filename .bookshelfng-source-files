@@ -2026,6 +2026,7 @@ release-notes/2026-10-21-maintained-build-runtime.md
 release-notes/2026-10-21-oidc-login-accessibility.md
 release-notes/2026-10-21-oidc-operator-docs.md
 release-notes/2026-10-21-oidc-sign-in.md
+release-notes/2026-10-22-refresh-aspnet-runtime-image.md
 release-notes/2026-10-22-runner-release-checks.md
 release-notes/2026-10-22-semgrep-runner-proxy.md
 release-notes/20260925-catalog-packaging.md
