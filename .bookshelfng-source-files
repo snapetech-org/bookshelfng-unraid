@@ -2043,6 +2043,7 @@ release-notes/20261014-trusted-main-runner-pool.md
 release-notes/20261014-validation-permission-results.md
 release-notes/20261021-alpine-icu-data.md
 release-notes/20261021-file-system-abstractions.md
+release-notes/20261023-ci-queue-reliability.md
 release-notes/README.md
 release-notes/accept-library-of-congress-record-urls.md
 release-notes/add-standalone-distributions.md
