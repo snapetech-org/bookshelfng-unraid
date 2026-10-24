@@ -23,6 +23,7 @@
 .github/workflows/retry-release-distribution.yml
 .github/workflows/security.yml
 .github/workflows/semgrep-community.yml
+.github/workflows/sync-unraid-legacy-ghcr.yml
 .github/workflows/trivy-filesystem.yml
 .gitignore
 .vscode/extensions.json
@@ -2044,6 +2045,7 @@ release-notes/20261014-validation-permission-results.md
 release-notes/20261021-alpine-icu-data.md
 release-notes/20261021-file-system-abstractions.md
 release-notes/20261023-ci-queue-reliability.md
+release-notes/20261024-dependency-security-updates.md
 release-notes/README.md
 release-notes/accept-library-of-congress-record-urls.md
 release-notes/add-standalone-distributions.md
