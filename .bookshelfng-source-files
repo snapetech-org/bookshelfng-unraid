@@ -2176,6 +2176,7 @@ release-notes/security-musl-regex-overflow.md
 release-notes/security-patch-frontend-build-dependencies.md
 release-notes/security-prevent-forged-download-and-media-move-logs.md
 release-notes/seerrng-edition-catalog.md
+release-notes/trivy-scan-initialization.md
 release-notes/yunohost-package.md
 schemas/torznab.xsd
 scripts/__pycache__/audit-chaptarr-consolidation.cpython-314.pyc
