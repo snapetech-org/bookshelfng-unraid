@@ -2171,6 +2171,7 @@ release-notes/security-api-auth-and-proxy-defaults.md
 release-notes/security-booklore-login-redirects.md
 release-notes/security-cross-origin-redirects.md
 release-notes/security-dependency-audit.md
+release-notes/security-hardened-container-and-helm-chart.md
 release-notes/security-musl-regex-overflow.md
 release-notes/security-patch-frontend-build-dependencies.md
 release-notes/security-prevent-forged-download-and-media-move-logs.md
