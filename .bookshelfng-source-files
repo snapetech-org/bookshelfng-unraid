@@ -2032,6 +2032,7 @@ release-notes/2026-10-21-oidc-sign-in.md
 release-notes/2026-10-22-refresh-aspnet-runtime-image.md
 release-notes/2026-10-22-runner-release-checks.md
 release-notes/2026-10-22-semgrep-runner-proxy.md
+release-notes/2026-10-26-github-cli-release-gate-checks.md
 release-notes/20260925-catalog-packaging.md
 release-notes/20261011-validation-engine.md
 release-notes/20261012-postcss-selector-parser-security.md
