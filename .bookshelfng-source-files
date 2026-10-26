@@ -26,7 +26,6 @@
 .github/workflows/retry-release-distribution.yml
 .github/workflows/security.yml
 .github/workflows/semgrep-community.yml
-.github/workflows/sync-unraid-legacy-ghcr.yml
 .github/workflows/trivy-filesystem.yml
 .github/workflows/trivy-published-image-audit.yml
 .gitignore
