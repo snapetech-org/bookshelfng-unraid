@@ -23,11 +23,6 @@ on:
         required: false
         type: boolean
         default: false
-      runtime_pack_run_id:
-        description: Optional successful runtime-pack artifact run for a retry
-        required: false
-        type: string
-        default: ""
       channels:
         description: Package publishers to run (all, or a comma-separated subset of aur,copr,ppa,chocolatey,helm)
         required: false
@@ -60,6 +55,9 @@ permissions:
   actions: read
   contents: read
 
+# Publisher recovery consumes the published release, so it needs no cache.
+cache-mode: none
+
 env:
   BOOKSHELF_RUNTIME_IDENTIFIERS: linux-x64;linux-x86;linux-arm64;linux-musl-x64;linux-musl-arm64;freebsd-x64;osx-x64;osx-arm64;win-x64;win-x86
 
@@ -70,7 +68,7 @@ concurrency:
 jobs:
   validate:
     name: Validate release tag
-    runs-on: ${{ (vars.NG_HOSTED_FIRST != 'true' || vars.NG_FORCE_JIT == 'true' || github.run_attempt > 1) && (contains(fromJSON('["push","workflow_dispatch","schedule","release","repository_dispatch"]'), github.event_name) && (github.ref == 'refs/heads/main' || (github.ref_type == 'tag' && startsWith(github.ref_name, 'v')))) && fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng","ng-main-run-{0}"]}}', github.run_id)) || 'ubuntu-latest' }}
+    runs-on: ${{ (vars.NG_HOSTED_FIRST != 'true' || vars.NG_FORCE_JIT == 'true' || github.run_attempt > 1) && (contains(fromJSON('["push","workflow_dispatch","schedule","release","repository_dispatch"]'), github.event_name) && (github.ref == 'refs/heads/main' || (github.ref_type == 'tag' && startsWith(github.ref_name, 'v')))) && fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng","ng-main-run-{0}","gha-{0}-validate"]}}', github.run_id)) || 'ubuntu-latest' }}
     outputs:
       tag: ${{ steps.version.outputs.tag }}
       version: ${{ steps.version.outputs.version }}
@@ -149,537 +147,12 @@ jobs:
               exit 1
             }
 
-      - name: Validate reused runtime-pack artifact
-        if: inputs.runtime_pack_run_id != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RUNTIME_PACK_RUN_ID: ${{ inputs.runtime_pack_run_id }}
-          TAG: ${{ steps.version.outputs.tag }}
-        run: |
-          set -euo pipefail
-          source_sha="$(git rev-parse "$TAG^{commit}")"
-          run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUNTIME_PACK_RUN_ID")"
-          runtime_pack_sha="$(jq -r '.head_sha' <<<"$run_json")"
-          runtime_pack_workflow="$(jq -r '.path' <<<"$run_json")"
-          case "$runtime_pack_workflow" in
-            .github/workflows/build.yml|.github/workflows/release-distribution.yml) ;;
-            *)
-              echo "Runtime-pack artifact came from an unexpected workflow: $runtime_pack_workflow" >&2
-              exit 1
-              ;;
-          esac
-          git merge-base --is-ancestor "$runtime_pack_sha" "$source_sha" || {
-            echo "Runtime-pack artifact run is not from the release tag's history." >&2
-            exit 1
-          }
-          git diff --quiet "$runtime_pack_sha" "$source_sha" -- \
-            scripts/build-dotnet10-platform-runtime-packs.sh \
-            src/Directory.Build.props src/NuGet.config || {
-            echo "Runtime-pack build inputs changed since run $RUNTIME_PACK_RUN_ID." >&2
-            exit 1
-          }
-          git show "$runtime_pack_sha:.github/workflows/release-distribution.yml" \
-            | sed -n '/^  build-platform-runtime-packs:/,/^  build-release-assets:/p' \
-            | sed '$d' \
-            | sed "/^    if: inputs.runtime_pack_run_id == ''$/d" \
-            > "$RUNNER_TEMP/runtime-pack-source-job.yml"
-          git show "$source_sha:.github/workflows/release-distribution.yml" \
-            | sed -n '/^  build-platform-runtime-packs:/,/^  build-release-assets:/p' \
-            | sed '$d' \
-            | sed "/^    if: inputs.runtime_pack_run_id == ''$/d" \
-            > "$RUNNER_TEMP/runtime-pack-tag-job.yml"
-          cmp -s "$RUNNER_TEMP/runtime-pack-source-job.yml" "$RUNNER_TEMP/runtime-pack-tag-job.yml" || {
-            echo "Runtime-pack workflow job changed since run $RUNTIME_PACK_RUN_ID." >&2
-            exit 1
-          }
-          jobs_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUNTIME_PACK_RUN_ID/jobs?per_page=100")"
-          jq -e '
-            any(.jobs[];
-              (.name | endswith("Build Linux x86 and FreeBSD .NET 10 runtime packs")) and
-              (.conclusion == "success" or .conclusion == "cancelled") and
-              any(.steps[]; .name == "Build and verify platform packs" and .conclusion == "success") and
-              any(.steps[]; (.name | startswith("Run actions/upload-artifact@")) and .conclusion == "success")
-            )
-          ' \
-            <<<"$jobs_json" >/dev/null || {
-              echo "Runtime-pack build or artifact upload did not succeed in run $RUNTIME_PACK_RUN_ID." >&2
-              exit 1
-            }
-          artifacts_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUNTIME_PACK_RUN_ID/artifacts?per_page=100")"
-          jq -e 'any(.artifacts[]; .name == "bookshelfng-platform-runtime-packs" and .expired == false)' \
-            <<<"$artifacts_json" >/dev/null || {
-              echo "Runtime-pack artifact is missing or expired in run $RUNTIME_PACK_RUN_ID." >&2
-              exit 1
-            }
 
-  build-platform-runtime-packs:
-    name: Build Linux x86 and FreeBSD .NET 10 runtime packs
-    if: inputs.recovery_only != true && inputs.runtime_pack_run_id == ''
-    needs: validate
-    runs-on: ubuntu-22.04
-    timeout-minutes: 360
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.validate.outputs.tag }}
-          fetch-depth: 1
-          persist-credentials: false
-
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          dotnet-version: |
-            10.0.110
-            10.0.111
-            10.0.401
-          dotnet-quality: ga
-
-      - name: Build and verify platform packs
-        env:
-          DOTNETVERSION: 10.0.401
-          PLATFORM_RUNTIME_PACKS_OUTPUT: ${{ github.workspace }}/_temp/platform-runtime-packs
-        run: ./scripts/build-dotnet10-platform-runtime-packs.sh
-
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: bookshelfng-platform-runtime-packs
-          path: _temp/platform-runtime-packs/
-          if-no-files-found: error
-          retention-days: 1
-
-  build-release-assets:
-    name: Build self-contained platform archives
-    if: >-
-      always() &&
-      needs.validate.result == 'success' &&
-      inputs.recovery_only != true &&
-      (needs.build-platform-runtime-packs.result == 'success' || inputs.runtime_pack_run_id != '')
-    needs: [validate, build-platform-runtime-packs]
-    runs-on: ubuntu-22.04
-    timeout-minutes: 180
-    permissions:
-      actions: read
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.validate.outputs.tag }}
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Align the archive helper with built runtime targets on manual reruns
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          set -euo pipefail
-          sed -i \
-            -e '/^[[:space:]]*linux-arm[[:space:]]*$/d' \
-            -e '/^[[:space:]]*linux-musl-arm[[:space:]]*$/d' \
-            scripts/create-release-archives.sh
-          python3 - <<'PY'
-          from pathlib import Path
-
-          helper = Path("scripts/create-release-archives.sh")
-          contents = helper.read_text()
-          old = 'source_date_epoch="$(git show -s --format=%ct "$tag")"'
-          new = 'source_date_epoch="$(git show -s --format=%ct "${tag}^{commit}")"'
-          if contents.count(old) == 1:
-              contents = contents.replace(old, new, 1)
-          elif new not in contents:
-              raise SystemExit("Cannot align archive helper timestamp lookup for this tag.")
-
-          old_check = '[[ -f "$source_dir/Readarr" || -f "$source_dir/Readarr.exe" ]] || {'
-          new_check = '[[ -f "$source_dir/Readarr" || -f "$source_dir/Readarr.exe" || -f "$source_dir/Readarr.Console.exe" ]] || {'
-          if old_check in contents:
-              contents = contents.replace(old_check, new_check, 1)
-          elif 'Readarr.Console.exe' not in contents:
-              raise SystemExit("Cannot align archive helper host executable validation for this tag.")
-
-          old_launcher = '''  if [[ -f "$staging/$archive_base/Readarr.exe" ]]; then
-              cat > "$staging/$archive_base/BookshelfNG.cmd" <<'EOF'
-          @echo off
-          "%~dp0Readarr.exe" %*
-          EOF
-            fi'''
-          new_launcher = '''  if [[ "$rid" == win-* ]]; then
-              host_executable="Readarr.exe"
-              if [[ -f "$staging/$archive_base/Readarr.Console.exe" ]]; then
-                host_executable="Readarr.Console.exe"
-              fi
-              cat > "$staging/$archive_base/BookshelfNG.cmd" <<EOF
-          @echo off
-          "%~dp0${host_executable}" %*
-          EOF
-            fi'''
-          if old_launcher in contents:
-              contents = contents.replace(old_launcher, new_launcher, 1)
-          elif 'Readarr.Console.exe' not in contents:
-              raise SystemExit("Cannot align archive helper Windows launcher for this tag.")
-
-          helper.write_text(contents)
-          PY
-
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          dotnet-version: 10.0.401
-
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 22.23.4
-          cache: yarn
-
-      - name: Enable pinned Yarn
-        run: |
-          corepack enable
-          corepack prepare yarn@1.22.19 --activate
-
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: bookshelfng-platform-runtime-packs
-          path: _temp/platform-runtime-packs
-          run-id: ${{ inputs.runtime_pack_run_id != '' && inputs.runtime_pack_run_id || github.run_id }}
-          github-token: ${{ github.token }}
-
-      - name: Build all supported .NET 10 runtimes
-        env:
-          BUILD_SOURCEBRANCHNAME: main
-          CUSTOM_RUNTIME_PACKS_DIR: ${{ github.workspace }}/_temp/platform-runtime-packs/packages
-          DOTNETVERSION: 10.0.401
-          READARRVERSION: ${{ needs.validate.outputs.version }}
-        run: |
-          set -euo pipefail
-          ./build.sh --backend --frontend --enable-extra-platforms \
-            --msbuild-arg=-p:SelfContained=true
-
-      - name: Package all supported runtime identifiers
-        env:
-          BUILD_SOURCEBRANCHNAME: main
-          READARRVERSION: ${{ needs.validate.outputs.version }}
-        run: |
-          set -euo pipefail
-          IFS=';' read -r -a runtime_identifiers <<< "$BOOKSHELF_RUNTIME_IDENTIFIERS"
-          for rid in "${runtime_identifiers[@]}"; do
-            ./build.sh --packages --framework net10.0 --runtime "$rid"
-          done
-
-      - name: Create versioned archives and checksums
-        env:
-          TAG: ${{ needs.validate.outputs.tag }}
-        run: bash scripts/create-release-archives.sh "$TAG" dist-release
-
-      - name: Build Windows x64 setup installer
-        env:
-          BUILD_SOURCEBRANCHNAME: main
-          READARRVERSION: ${{ needs.validate.outputs.version }}
-          TAG: ${{ needs.validate.outputs.tag }}
-        run: |
-          set -euo pipefail
-          ./build.sh --installer
-          source="distribution/windows/setup/output/BookshelfNG.Installer.${READARRVERSION}.win-x64.exe"
-          target="dist-release/BookshelfNG-${TAG}-windows-x64-setup.exe"
-          test -s "$source"
-          cp "$source" "$target"
-          (cd dist-release && sha256sum "$(basename "$target")" > "$(basename "$target").sha256")
-
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: bookshelfng-release-assets
-          path: dist-release/
-          if-no-files-found: error
-          retention-days: 1
-
-  # Reusing a runtime-pack artifact intentionally skips that build job. Keep
-  # downstream release jobs eligible with explicit checks for their real inputs.
-  build-linux-packages:
-    name: Build Debian, RPM, AppImage, and Flatpak packages
-    if: >-
-      always() &&
-      needs.validate.result == 'success' &&
-      inputs.recovery_only != true &&
-      needs.build-release-assets.result == 'success'
-    needs: [validate, build-release-assets]
-    runs-on: ubuntu-22.04
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.validate.outputs.tag }}
-          persist-credentials: false
-
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: bookshelfng-release-assets
-          path: dist-release
-
-      - name: Prepare Linux x64 archive
-        env:
-          TAG: ${{ needs.validate.outputs.tag }}
-        run: |
-          set -euo pipefail
-          archive="BookshelfNG-${TAG}-linux-x64.tar.gz"
-          mkdir -p dist
-          tar -xzf "dist-release/$archive" --strip-components=1 -C dist
-          test -x dist/Readarr
-
-      - name: Build Debian package
-        env:
-          VERSION: ${{ needs.validate.outputs.version }}
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential debhelper devscripts dpkg-dev
-          package_root="$RUNNER_TEMP/bookshelfng-deb"
-          mkdir -p "$package_root/debian" "$package_root/packaging"
-          cp -a packaging/debian/. "$package_root/debian/"
-          # The .NET LTTng provider is optional and links to an ABI unavailable on this target.
-          # Exclude it from Debian dependency generation for older release tags.
-          if ! grep -q '^override_dh_shlibdeps:' "$package_root/debian/rules"; then
-            printf '\noverride_dh_shlibdeps:\n\tdh_shlibdeps -Xlibcoreclrtraceptprovider.so\n' \
-              >> "$package_root/debian/rules"
-          fi
-          cp -a packaging/systemd "$package_root/packaging/"
-          cp -a dist "$package_root/dist"
-          cp LICENSE.md "$package_root/"
-          cat > "$package_root/debian/changelog" <<EOF
-          bookshelfng (${VERSION}-1) stable; urgency=medium
-
-            * BookshelfNG ${VERSION} release.
-
-           -- BookshelfNG maintainers <noreply@github.com>  $(date -R)
-          EOF
-          chmod 0755 "$package_root/debian/rules"
-          cd "$package_root"
-          dpkg-buildpackage -us -uc -b
-          mkdir -p "$GITHUB_WORKSPACE/dist-added"
-          cp ../bookshelfng_*.deb "$GITHUB_WORKSPACE/dist-added/"
-
-      - name: Build RPM package and COPR source package
-        env:
-          VERSION: ${{ needs.validate.outputs.version }}
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y rpm
-          rpm_top="$RUNNER_TEMP/rpmbuild"
-          mkdir -p "$rpm_top"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
-          cp "dist-release/BookshelfNG-${{ needs.validate.outputs.tag }}-linux-x64.tar.gz" "$rpm_top/SOURCES/bookshelfng-${VERSION}.tar.gz"
-          cp packaging/systemd/bookshelfng.{service,env,sysusers,tmpfiles} "$rpm_top/SOURCES/"
-          cp packaging/rpm/bookshelfng.spec "$rpm_top/SPECS/"
-          # Older release tags may predate the durable exclusion in the RPM spec.
-          spec_path="$rpm_top/SPECS/bookshelfng.spec"
-          if ! grep -Fqx '%global __requires_exclude ^liblttng-ust[.]so[.]0' "$spec_path"; then
-            sed -i '/^%global _libdir /a %global __requires_exclude ^liblttng-ust[.]so[.]0' "$spec_path"
-          fi
-          grep -Fqx '%global __requires_exclude ^liblttng-ust[.]so[.]0' "$spec_path"
-          sed -i "s/^Version:.*$/Version:        ${VERSION}/; s/^Release:.*$/Release:        1%{?dist}/" "$rpm_top/SPECS/bookshelfng.spec"
-          # Ubuntu's rpm package does not define systemd macros used by the RPM spec.
-          rpmbuild -ba \
-            --define "_topdir $rpm_top" \
-            --define "_unitdir /usr/lib/systemd/system" \
-            "$rpm_top/SPECS/bookshelfng.spec"
-          cp "$rpm_top/RPMS/x86_64"/*.rpm dist-release/
-          cp "$rpm_top/SRPMS"/*.src.rpm dist-release/
-
-      - name: Build AppImage
-        env:
-          TAG: ${{ needs.validate.outputs.tag }}
-        run: |
-          set -euo pipefail
-          appdir="$RUNNER_TEMP/BookshelfNG.AppDir"
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y libicu70 libssl3 libsqlite3-0
-          mkdir -p "$appdir/usr/lib/bookshelfng" "$appdir/usr/bin" \
-            "$appdir/usr/lib" \
-            "$appdir/usr/share/applications" "$appdir/usr/share/icons/hicolor/scalable/apps"
-          cp -a dist/. "$appdir/usr/lib/bookshelfng/"
-          # The optional .NET trace provider requires the unavailable LTTng ABI 0.
-          find "$appdir/usr/lib/bookshelfng" -name libcoreclrtraceptprovider.so -delete
-          cp -a /usr/lib/x86_64-linux-gnu/libicu*.so* "$appdir/usr/lib/"
-          cp -a /usr/lib/x86_64-linux-gnu/libssl.so.3 /usr/lib/x86_64-linux-gnu/libcrypto.so.3 \
-            /usr/lib/x86_64-linux-gnu/libsqlite3.so.0 "$appdir/usr/lib/"
-          ln -s ../lib/bookshelfng/Readarr "$appdir/usr/bin/Readarr"
-          ln -s Readarr "$appdir/usr/bin/BookshelfNG"
-          cp packaging/appimage/AppRun "$appdir/AppRun"
-          chmod 0755 "$appdir/AppRun"
-          cp packaging/appimage/com.snapetech.bookshelfng.desktop "$appdir/BookshelfNG.desktop"
-          cp frontend/src/Content/Images/logo.svg "$appdir/usr/share/icons/hicolor/scalable/apps/bookshelfng.svg"
-          linuxdeploy_url='https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage'
-          curl --fail --location --retry 3 --silent --show-error "$linuxdeploy_url" -o "$RUNNER_TEMP/linuxdeploy"
-          chmod 0755 "$RUNNER_TEMP/linuxdeploy"
-          APPIMAGE_EXTRACT_AND_RUN=1 "$RUNNER_TEMP/linuxdeploy" --appdir "$appdir" \
-            --executable "$appdir/usr/lib/bookshelfng/Readarr" \
-            --desktop-file "$appdir/BookshelfNG.desktop" \
-            --icon-file "$appdir/usr/share/icons/hicolor/scalable/apps/bookshelfng.svg"
-          appimagetool_url='https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage'
-          curl --fail --location --retry 3 --silent --show-error "$appimagetool_url" -o "$RUNNER_TEMP/appimagetool"
-          chmod 0755 "$RUNNER_TEMP/appimagetool"
-          APPIMAGE_EXTRACT_AND_RUN=1 ARCH=x86_64 "$RUNNER_TEMP/appimagetool" "$appdir" \
-            "dist-release/BookshelfNG-${TAG}-x86_64.AppImage"
-
-      - name: Build Flatpak bundle
-        env:
-          TAG: ${{ needs.validate.outputs.tag }}
-          VERSION: ${{ needs.validate.outputs.version }}
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y flatpak flatpak-builder
-          sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-          sudo flatpak install -y flathub \
-            org.freedesktop.Platform//26.08 \
-            org.freedesktop.Sdk//26.08
-          mkdir -p packaging/flatpak/src
-          cp -a dist/. packaging/flatpak/src/
-          flatpak-builder --force-clean \
-            --default-branch=stable \
-            --repo="$RUNNER_TEMP/bookshelfng-flatpak-repo" \
-            "$RUNNER_TEMP/bookshelfng-flatpak-build" packaging/flatpak/com.snapetech.BookshelfNG.yml
-          flatpak build-bundle "$RUNNER_TEMP/bookshelfng-flatpak-repo" \
-            "dist-release/BookshelfNG-${TAG}.flatpak" com.snapetech.BookshelfNG stable \
-            --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo
-
-      - name: Add checksums
-        run: |
-          set -euo pipefail
-          for asset in dist-release/*.deb dist-release/*.rpm dist-release/*.src.rpm dist-release/*.AppImage dist-release/*.flatpak; do
-            [[ -f "$asset" ]] || continue
-            cp "$asset" dist-added/
-          done
-          (
-            cd dist-added
-            for asset in *; do
-              [[ -f "$asset" ]] || continue
-              sha256sum "$asset" > "$asset.sha256"
-            done
-          )
-
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: bookshelfng-linux-packages
-          path: dist-added/
-          if-no-files-found: error
-          retention-days: 1
-
-  build-helm:
-    name: Package Helm chart
-    if: inputs.recovery_only != true
-    needs: [validate]
-    runs-on: ${{ (vars.NG_HOSTED_FIRST != 'true' || vars.NG_FORCE_JIT == 'true' || github.run_attempt > 1) && (contains(fromJSON('["push","workflow_dispatch","schedule","release","repository_dispatch"]'), github.event_name) && (github.ref == 'refs/heads/main' || (github.ref_type == 'tag' && startsWith(github.ref_name, 'v')))) && fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng","ng-main-run-{0}"]}}', github.run_id)) || 'ubuntu-latest' }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.validate.outputs.tag }}
-          persist-credentials: false
-
-      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
-
-      - name: Render release-versioned chart
-        env:
-          VERSION: ${{ needs.validate.outputs.version }}
-          CHART_VERSION: ${{ needs.validate.outputs.chart_version }}
-          HARDCOVER_DIGEST: ${{ inputs.hardcover_digest }}
-        run: |
-          set -euo pipefail
-          sed -i "s/^version:.*/version: ${CHART_VERSION}/; s/^appVersion:.*/appVersion: \"${VERSION}\"/" charts/bookshelfng/Chart.yaml
-          [[ "$HARDCOVER_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || {
-            echo 'The release Hardcover image digest is invalid.' >&2
-            exit 1
-          }
-          sed -i "s#^  digest:.*#  digest: \"${HARDCOVER_DIGEST}\"#" charts/bookshelfng/values.yaml
-          helm lint charts/bookshelfng
-          helm package charts/bookshelfng --destination dist-release
-          for chart in dist-release/*.tgz; do
-            chart_name="$(basename "$chart")"
-            (cd dist-release && sha256sum "$chart_name" > "$chart_name.sha256")
-          done
-
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: bookshelfng-helm
-          path: dist-release/*
-          if-no-files-found: error
-          retention-days: 1
-
-  publish-github-release:
-    name: Publish GitHub release assets
-    if: >-
-      always() &&
-      needs.validate.result == 'success' &&
-      inputs.recovery_only != true &&
-      needs.publisher-credentials.result == 'success' &&
-      needs.build-release-assets.result == 'success' &&
-      needs.build-linux-packages.result == 'success' &&
-      needs.build-helm.result == 'success'
-    needs: [validate, publisher-credentials, build-release-assets, build-linux-packages, build-helm]
-    runs-on: ${{ (vars.NG_HOSTED_FIRST != 'true' || vars.NG_FORCE_JIT == 'true' || github.run_attempt > 1) && (contains(fromJSON('["push","workflow_dispatch","schedule","release","repository_dispatch"]'), github.event_name) && (github.ref == 'refs/heads/main' || (github.ref_type == 'tag' && startsWith(github.ref_name, 'v')))) && fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng","ng-main-run-{0}"]}}', github.run_id)) || 'ubuntu-latest' }}
-    permissions:
-      actions: read
-      contents: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.validate.outputs.tag }}
-          persist-credentials: false
-
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          pattern: bookshelfng-*
-          path: release-assets
-          merge-multiple: true
-
-      - name: Verify checksums and release inventory
-        env:
-          TAG: ${{ needs.validate.outputs.tag }}
-        run: |
-          set -euo pipefail
-          IFS=';' read -r -a runtime_identifiers <<< "$BOOKSHELF_RUNTIME_IDENTIFIERS"
-          for rid in "${runtime_identifiers[@]}"; do
-            if [[ "$rid" == win-* ]]; then
-              asset="BookshelfNG-${TAG}-${rid}.zip"
-            else
-              asset="BookshelfNG-${TAG}-${rid}.tar.gz"
-            fi
-            test -f "release-assets/$asset"
-            test -f "release-assets/$asset.sha256"
-            (cd release-assets && sha256sum -c "$asset.sha256")
-          done
-          for rid in x64 arm64; do
-            asset="BookshelfNG-${TAG}-macos-${rid}.app.zip"
-            test -f "release-assets/$asset"
-            test -f "release-assets/$asset.sha256"
-            (cd release-assets && sha256sum -c "$asset.sha256")
-          done
-          installer="BookshelfNG-${TAG}-windows-x64-setup.exe"
-          test -f "release-assets/$installer"
-          test -f "release-assets/$installer.sha256"
-          (cd release-assets && sha256sum -c "$installer.sha256")
-          for pattern in '*.deb' '*.rpm' '*.AppImage' '*.flatpak' '*.tgz'; do
-            compgen -G "release-assets/$pattern" >/dev/null || {
-              echo "Missing required release asset matching $pattern" >&2
-              exit 1
-            }
-          done
-          for asset in release-assets/*.deb release-assets/*.rpm release-assets/*.src.rpm \
-            release-assets/*.AppImage release-assets/*.flatpak release-assets/*.tgz; do
-            [[ -f "$asset" ]] || continue
-            checksum="$asset.sha256"
-            test -f "$checksum"
-            (cd release-assets && sha256sum -c "$(basename "$checksum")")
-          done
-
-      - name: Upload assets and publish draft release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.validate.outputs.tag }}
-        run: |
-          set -euo pipefail
-          mapfile -d '' release_files < <(find release-assets -mindepth 1 -maxdepth 1 -type f -print0)
-          ((${#release_files[@]} > 0))
-          gh release upload "$TAG" "${release_files[@]}" --clobber
-          gh release edit "$TAG" --draft=false
 
   publisher-credentials:
     name: Validate optional publisher configuration
     needs: [validate]
-    runs-on: ${{ (vars.NG_HOSTED_FIRST != 'true' || vars.NG_FORCE_JIT == 'true' || github.run_attempt > 1) && (contains(fromJSON('["push","workflow_dispatch","schedule","release","repository_dispatch"]'), github.event_name) && (github.ref == 'refs/heads/main' || (github.ref_type == 'tag' && startsWith(github.ref_name, 'v')))) && fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng","ng-main-run-{0}"]}}', github.run_id)) || 'ubuntu-latest' }}
+    runs-on: ${{ (vars.NG_HOSTED_FIRST != 'true' || vars.NG_FORCE_JIT == 'true' || github.run_attempt > 1) && (contains(fromJSON('["push","workflow_dispatch","schedule","release","repository_dispatch"]'), github.event_name) && (github.ref == 'refs/heads/main' || (github.ref_type == 'tag' && startsWith(github.ref_name, 'v')))) && fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng","ng-main-run-{0}","gha-{0}-publisher-credentials"]}}', github.run_id)) || 'ubuntu-latest' }}
     outputs:
       aur: ${{ steps.check.outputs.aur }}
       copr: ${{ steps.check.outputs.copr }}
@@ -705,15 +178,14 @@ jobs:
 
   publish-aur:
     name: Publish AUR package
-    needs: [validate, publish-github-release, publisher-credentials]
+    needs: [validate, publisher-credentials]
     if: >-
       always() &&
       needs.validate.result == 'success' &&
-      (needs.publish-github-release.result == 'success' || inputs.recovery_only == true) &&
       needs.publisher-credentials.result == 'success' &&
       needs.publisher-credentials.outputs.aur == 'true' &&
       (inputs.channels == 'all' || contains(inputs.channels, 'aur'))
-    runs-on: ubuntu-latest
+    runs-on: ${{ contains(fromJSON('["push","workflow_dispatch","schedule","release","repository_dispatch"]'), github.event_name) && (github.ref == 'refs/heads/main' || (github.ref_type == 'tag' && startsWith(github.ref_name, 'v'))) && fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng","ng-main-run-{0}","gha-{0}-publish-aur"]}}', github.run_id)) || 'ubuntu-latest' }}
     permissions:
       contents: read
     steps:
@@ -728,7 +200,7 @@ jobs:
           TAG: ${{ needs.validate.outputs.tag }}
         run: |
           set -euo pipefail
-          gh release download "$TAG" --pattern "BookshelfNG-${TAG}-linux-x64.tar.gz" --dir "$RUNNER_TEMP"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "BookshelfNG-${TAG}-linux-x64.tar.gz" --dir "$RUNNER_TEMP"
           archive="$RUNNER_TEMP/BookshelfNG-${TAG}-linux-x64.tar.gz"
           checksum="$(sha256sum "$archive" | awk '{print $1}')"
           echo "ARCHIVE_SHA256=$checksum" >> "$GITHUB_ENV"
@@ -805,6 +277,7 @@ jobs:
             IdentityFile ~/.ssh/aur
             IdentitiesOnly yes
             StrictHostKeyChecking yes
+            ProxyCommand nc -X connect -x 10.0.2.100:3128 %h %p
             UserKnownHostsFile ~/.ssh/known_hosts
             GlobalKnownHostsFile /dev/null
             BatchMode yes
@@ -833,15 +306,14 @@ jobs:
 
   publish-copr:
     name: Trigger COPR build
-    needs: [validate, publish-github-release, publisher-credentials]
+    needs: [validate, publisher-credentials]
     if: >-
       always() &&
       needs.validate.result == 'success' &&
-      (needs.publish-github-release.result == 'success' || inputs.recovery_only == true) &&
       needs.publisher-credentials.result == 'success' &&
       needs.publisher-credentials.outputs.copr == 'true' &&
       (inputs.channels == 'all' || contains(inputs.channels, 'copr'))
-    runs-on: ubuntu-latest
+    runs-on: ${{ contains(fromJSON('["push","workflow_dispatch","schedule","release","repository_dispatch"]'), github.event_name) && (github.ref == 'refs/heads/main' || (github.ref_type == 'tag' && startsWith(github.ref_name, 'v'))) && fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng","ng-main-run-{0}","gha-{0}-publish-copr"]}}', github.run_id)) || 'ubuntu-latest' }}
     permissions:
       contents: read
     steps:
@@ -880,11 +352,10 @@ jobs:
 
   publish-ppa:
     name: Publish signed Launchpad PPA source package
-    needs: [validate, publish-github-release, publisher-credentials]
+    needs: [validate, publisher-credentials]
     if: >-
       always() &&
       needs.validate.result == 'success' &&
-      (needs.publish-github-release.result == 'success' || inputs.recovery_only == true) &&
       needs.publisher-credentials.result == 'success' &&
       needs.publisher-credentials.outputs.ppa == 'true' &&
       (inputs.channels == 'all' || contains(inputs.channels, 'ppa'))
@@ -908,7 +379,7 @@ jobs:
           set -euo pipefail
           sudo apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential debhelper devscripts dpkg-dev gnupg dput
-          gh release download "$TAG" --pattern "BookshelfNG-${TAG}-linux-x64.tar.gz" --dir "$RUNNER_TEMP"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "BookshelfNG-${TAG}-linux-x64.tar.gz" --dir "$RUNNER_TEMP"
           package_root="$RUNNER_TEMP/bookshelfng-${VERSION}"
           mkdir -p "$package_root/debian" "$package_root/packaging" "$package_root/dist"
           cp -a packaging/debian/. "$package_root/debian/"
@@ -966,11 +437,10 @@ jobs:
 
   publish-chocolatey:
     name: Publish Chocolatey package
-    needs: [validate, publish-github-release, publisher-credentials]
+    needs: [validate, publisher-credentials]
     if: >-
       always() &&
       needs.validate.result == 'success' &&
-      (needs.publish-github-release.result == 'success' || inputs.recovery_only == true) &&
       needs.publisher-credentials.result == 'success' &&
       needs.publisher-credentials.outputs.chocolatey == 'true' &&
       (inputs.channels == 'all' || contains(inputs.channels, 'chocolatey'))
@@ -986,7 +456,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.validate.outputs.tag }}
         shell: pwsh
-        run: gh release download $env:TAG --pattern "BookshelfNG-$env:TAG-win-x64.zip"
+        run: gh release download $env:TAG --repo $env:GITHUB_REPOSITORY --pattern "BookshelfNG-$env:TAG-win-x64.zip"
 
       - name: Prepare and push Chocolatey package
         env:
@@ -1023,28 +493,18 @@ jobs:
 
   publish-helm:
     name: Publish signed Helm OCI chart
-    needs: [validate, build-helm, publish-github-release]
+    needs: [validate]
     if: >-
       always() &&
       needs.validate.result == 'success' &&
-      (needs.build-helm.result == 'success' || inputs.recovery_only == true) &&
-      (needs.publish-github-release.result == 'success' || inputs.recovery_only == true) &&
       (inputs.channels == 'all' || contains(inputs.channels, 'helm'))
-    runs-on: ${{ (vars.NG_HOSTED_FIRST != 'true' || vars.NG_FORCE_JIT == 'true' || github.run_attempt > 1) && (contains(fromJSON('["push","workflow_dispatch","schedule","release","repository_dispatch"]'), github.event_name) && (github.ref == 'refs/heads/main' || (github.ref_type == 'tag' && startsWith(github.ref_name, 'v')))) && fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng","ng-main-run-{0}"]}}', github.run_id)) || 'ubuntu-latest' }}
+    runs-on: ${{ (vars.NG_HOSTED_FIRST != 'true' || vars.NG_FORCE_JIT == 'true' || github.run_attempt > 1) && (contains(fromJSON('["push","workflow_dispatch","schedule","release","repository_dispatch"]'), github.event_name) && (github.ref == 'refs/heads/main' || (github.ref_type == 'tag' && startsWith(github.ref_name, 'v')))) && fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng","ng-main-run-{0}","gha-{0}-publish-helm"]}}', github.run_id)) || 'ubuntu-latest' }}
     permissions:
       contents: read
       packages: write
       id-token: write
     steps:
-      - name: Download chart built for this tag
-        if: inputs.recovery_only != true
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: bookshelfng-helm
-          path: dist-release
-
-      - name: Reuse published Helm chart for publisher recovery
-        if: inputs.recovery_only == true
+      - name: Download and verify the published Helm chart
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.validate.outputs.tag }}
@@ -1052,7 +512,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist-release
-          gh release download "$TAG" \
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
             --pattern "bookshelfng-${CHART_VERSION}.tgz" \
             --pattern "bookshelfng-${CHART_VERSION}.tgz.sha256" \
             --dir dist-release
@@ -1088,7 +548,6 @@ jobs:
     name: Announce completed release
     needs:
       - validate
-      - publish-github-release
       - publisher-credentials
       - publish-aur
       - publish-copr
@@ -1098,11 +557,9 @@ jobs:
     if: >-
       ${{
         always() &&
-        inputs.recovery_only != true &&
-        needs.publish-github-release.result == 'success' &&
         inputs.skip_announcement != true
       }}
-    runs-on: ${{ (vars.NG_HOSTED_FIRST != 'true' || vars.NG_FORCE_JIT == 'true' || github.run_attempt > 1) && (contains(fromJSON('["push","workflow_dispatch","schedule","release","repository_dispatch"]'), github.event_name) && (github.ref == 'refs/heads/main' || (github.ref_type == 'tag' && startsWith(github.ref_name, 'v')))) && fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng","ng-main-run-{0}"]}}', github.run_id)) || 'ubuntu-latest' }}
+    runs-on: ${{ (vars.NG_HOSTED_FIRST != 'true' || vars.NG_FORCE_JIT == 'true' || github.run_attempt > 1) && (contains(fromJSON('["push","workflow_dispatch","schedule","release","repository_dispatch"]'), github.event_name) && (github.ref == 'refs/heads/main' || (github.ref_type == 'tag' && startsWith(github.ref_name, 'v')))) && fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng","ng-main-run-{0}","gha-{0}-announce"]}}', github.run_id)) || 'ubuntu-latest' }}
     permissions:
       contents: read
     steps:
@@ -1130,15 +587,9 @@ jobs:
             echo 'DISCORD_RELEASE_WEBHOOK is required to complete a release announcement.' >&2
             exit 1
           }
-          release_body="$(gh release view "$TAG" --json body --jq .body)"
+          release_body="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body)"
           if [[ -z "$release_body" ]]; then
             release_body='Standalone BookshelfNG builds and packages are available. See the release for platform downloads and checksums.'
-          fi
-          if [[ "$release_body" == *$'\n### Bug Fixes'* ]]; then
-            release_body="${release_body%%$'\n### Bug Fixes'*}"
-          fi
-          if (( ${#release_body} > 4000 )); then
-            release_body="${release_body:0:3997}…"
           fi
           failed_publishers=()
           for channel in AUR COPR PPA CHOCOLATEY HELM; do
@@ -1155,36 +606,95 @@ jobs:
           fi
           release_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${TAG}"
           workflow_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          jq -n \
-            --arg title "BookshelfNG ${VERSION} is available" \
-            --arg url "$release_url" \
-            --arg description "$release_body" \
-            --arg softcover "ghcr.io/${GITHUB_REPOSITORY}:softcover" \
-            --arg softcover_digest "$SOFTCOVER_DIGEST" \
-            --arg hardcover "ghcr.io/${GITHUB_REPOSITORY}:hardcover" \
-            --arg hardcover_digest "$HARDCOVER_DIGEST" \
-            --arg channel_status "$channel_status" \
-            --arg workflow "$workflow_url" \
-            '{
-              username: "BookshelfNG Releases",
-              embeds: [{
-                title: $title,
-                url: $url,
-                description: $description,
-                color: 5814783,
-                fields: [
-                  { name: "Softcover image", value: ("`" + $softcover + "`"), inline: false },
-                  { name: "Softcover digest", value: ("`" + $softcover_digest + "`"), inline: false },
-                  { name: "Hardcover image", value: ("`" + $hardcover + "`"), inline: false },
-                  { name: "Hardcover digest", value: ("`" + $hardcover_digest + "`"), inline: false },
-                  { name: "Downloads", value: $url, inline: false },
-                  { name: "Package channel status", value: $channel_status, inline: false },
-                  { name: "Build", value: $workflow, inline: false }
-                ]
-              }]
-            }' > "$RUNNER_TEMP/discord-release.json"
-          curl --fail --silent --show-error \
-            -H 'Content-Type: application/json' \
-            -X POST \
-            --data "@$RUNNER_TEMP/discord-release.json" \
-            "$DISCORD_WEBHOOK"
+          release_body_file="$RUNNER_TEMP/bookshelfng-discord-release-body.md"
+          chunks_file="$RUNNER_TEMP/bookshelfng-discord-release-chunks.json"
+          printf '%s' "$release_body" > "$release_body_file"
+          python3 - "$release_body_file" "$chunks_file" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+          limit = 3500
+          chunks = []
+          current = ""
+          for line in text.splitlines(keepends=True):
+              while len(line) > limit:
+                  if current:
+                      chunks.append(current)
+                      current = ""
+                  chunks.append(line[:limit])
+                  line = line[limit:]
+              if len(current) + len(line) > limit:
+                  chunks.append(current)
+                  current = ""
+              current += line
+          if current or not chunks:
+              chunks.append(current)
+          pathlib.Path(sys.argv[2]).write_text(
+              json.dumps(chunks, ensure_ascii=False), encoding="utf-8"
+          )
+          PY
+          chunk_count="$(jq 'length' "$chunks_file")"
+          for ((index = 0; index < chunk_count; index += 1)); do
+            if (( index == 0 )); then
+              jq -n \
+                --slurpfile chunks "$chunks_file" \
+                --argjson index "$index" \
+                --arg title "BookshelfNG ${VERSION} is available" \
+                --arg url "$release_url" \
+                --arg softcover "ghcr.io/${GITHUB_REPOSITORY}:softcover" \
+                --arg softcover_digest "$SOFTCOVER_DIGEST" \
+                --arg hardcover "ghcr.io/${GITHUB_REPOSITORY}:hardcover" \
+                --arg hardcover_digest "$HARDCOVER_DIGEST" \
+                --arg channel_status "$channel_status" \
+                --arg workflow "$workflow_url" \
+                '{
+                  username: "BookshelfNG Releases",
+                  allowed_mentions: {parse: []},
+                  embeds: [{
+                    title: $title,
+                    url: $url,
+                    description: $chunks[0][$index],
+                    color: 5814783,
+                    fields: [
+                      { name: "Softcover image", value: ("`" + $softcover + "`"), inline: false },
+                      { name: "Softcover digest", value: ("`" + $softcover_digest + "`"), inline: false },
+                      { name: "Hardcover image", value: ("`" + $hardcover + "`"), inline: false },
+                      { name: "Hardcover digest", value: ("`" + $hardcover_digest + "`"), inline: false },
+                      { name: "Downloads", value: $url, inline: false },
+                      { name: "Package channel status", value: $channel_status, inline: false },
+                      { name: "Build", value: $workflow, inline: false }
+                    ]
+                  }]
+                }' > "$RUNNER_TEMP/discord-release-$index.json"
+            else
+              part_number="$((index + 1))"
+              jq -n \
+                --slurpfile chunks "$chunks_file" \
+                --argjson index "$index" \
+                --arg title "BookshelfNG ${VERSION} changelog (${part_number}/${chunk_count})" \
+                --arg url "$release_url" \
+                --arg part "${part_number} of ${chunk_count}" \
+                '{
+                  username: "BookshelfNG Releases",
+                  allowed_mentions: {parse: []},
+                  embeds: [{
+                    title: $title,
+                    url: $url,
+                    description: $chunks[0][$index],
+                    color: 5814783,
+                    fields: [
+                      { name: "Full release notes", value: $url, inline: false },
+                      { name: "Changelog message", value: $part, inline: false }
+                    ]
+                  }]
+                }' > "$RUNNER_TEMP/discord-release-$index.json"
+            fi
+            if (( index > 0 )); then sleep 1; fi
+            curl --fail --silent --show-error \
+              -H 'Content-Type: application/json' \
+              -X POST \
+              --data "@$RUNNER_TEMP/discord-release-$index.json" \
+              "$DISCORD_WEBHOOK"
+          done

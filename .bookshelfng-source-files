@@ -18,8 +18,10 @@
 .github/workflows/gvisor-runner-smoke.yml
 .github/workflows/package-sync.yml
 .github/workflows/public-fork-pr.yml
+.github/workflows/release-build.yml
 .github/workflows/release-distribution.yml
 .github/workflows/release-notes.yml
+.github/workflows/release-publication.yml
 .github/workflows/retry-release-distribution.yml
 .github/workflows/security.yml
 .github/workflows/semgrep-community.yml
@@ -2046,6 +2048,9 @@ release-notes/20261021-alpine-icu-data.md
 release-notes/20261021-file-system-abstractions.md
 release-notes/20261023-ci-queue-reliability.md
 release-notes/20261024-dependency-security-updates.md
+release-notes/20261025-final-security-maintenance.md
+release-notes/20261025-release-build-isolation.md
+release-notes/20261025-release-cache-isolation.md
 release-notes/README.md
 release-notes/accept-library-of-congress-record-urls.md
 release-notes/add-standalone-distributions.md
@@ -2165,6 +2170,7 @@ release-notes/security-api-auth-and-proxy-defaults.md
 release-notes/security-booklore-login-redirects.md
 release-notes/security-cross-origin-redirects.md
 release-notes/security-dependency-audit.md
+release-notes/security-musl-regex-overflow.md
 release-notes/security-patch-frontend-build-dependencies.md
 release-notes/security-prevent-forged-download-and-media-move-logs.md
 release-notes/seerrng-edition-catalog.md
@@ -2208,6 +2214,7 @@ scripts/validate-release-publisher-config.test.mjs
 scripts/verify-chocolatey-package.ps1
 scripts/verify-package-sync.sh
 scripts/verify-stable-container-aliases.sh
+security/trivy-exceptions.yaml
 src/Bookshelf.Diagnostics/Bookshelf.Diagnostics.csproj
 src/Bookshelf.Diagnostics/DiagnosticsEventHandler.cs
 src/Bookshelf.Diagnostics/DiagnosticsReporter.cs

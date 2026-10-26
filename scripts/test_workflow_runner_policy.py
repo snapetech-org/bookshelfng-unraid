@@ -54,16 +54,102 @@ def job_block(source: str, name: str) -> str:
 
 
 class WorkflowRunnerPolicyTests(unittest.TestCase):
-    def test_manual_distribution_reuses_only_published_release_outputs(self) -> None:
+    def test_manual_distribution_reuses_published_outputs_and_allows_explicit_announcement(
+        self,
+    ) -> None:
         distribution = RELEASE_DISTRIBUTION.read_text(encoding="utf-8")
         retry = RETRY_RELEASE_DISTRIBUTION.read_text(encoding="utf-8")
         self.assertRegex(distribution, r"(?m)^  workflow_call:$")
         self.assertNotRegex(distribution, r"(?m)^  workflow_dispatch:")
-        self.assertIn("inputs.recovery_only != true", distribution)
+        self.assertRegex(retry, r"(?m)^  workflow_call:$")
+        self.assertIn("inputs.skip_announcement != true", distribution)
+        self.assertNotIn("inputs.recovery_only != true", distribution)
         self.assertIn("Require an already-published release for publisher recovery", distribution)
         self.assertIn("gh release download \"$TAG\"", distribution)
         self.assertIn("recovery_only: true", retry)
+        self.assertIn("skip_announcement: ${{ inputs.skip_announcement }}", retry)
+        self.assertIn("true by default for retries", retry)
+        self.assertIn("softcover_digest: ${{ inputs.softcover_digest }}", retry)
+        self.assertIn("hardcover_digest: ${{ inputs.hardcover_digest }}", retry)
         self.assertIn("Previously published BookshelfNG release tag to retry", retry)
+
+    def test_release_retry_has_an_owner_only_trusted_main_jit_entrypoint(self) -> None:
+        source = WORKFLOW.read_text(encoding="utf-8")
+        dispatch = event_block(source, "workflow_dispatch")
+        for name in (
+            "release_tag",
+            "release_softcover_digest",
+            "release_hardcover_digest",
+            "release_channels",
+            "release_chocolatey_use_main_packaging",
+            "release_skip_announcement",
+        ):
+            with self.subTest(input=name):
+                self.assertIn(f"      {name}:", dispatch)
+
+        retry_job = job_block(source, "retry-release-distribution")
+        for required in (
+            "github.actor == 'snapetech'",
+            "github.ref == 'refs/heads/main'",
+            "inputs.release_tag != ''",
+            "inputs.pr_number == ''",
+            "runs-on: ${{ fromJSON(format('",
+            '"gha-{0}-retry-release-distribution"',
+            "permissions:",
+            "contents: read",
+            "packages: write",
+            "id-token: write",
+            "Validate published release and requested JIT channels",
+            "Validate Discord destination",
+            "Publish AUR package",
+            "Trigger COPR build",
+            "Publish signed Helm OCI chart",
+            "Send complete release announcement",
+            "DISCORD_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}",
+            "inputs.release_skip_announcement != true",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, retry_job)
+        self.assertNotIn("uses: ./.github/workflows/retry-release-distribution.yml", retry_job)
+        self.assertNotIn("|| 'ubuntu-latest'", retry_job)
+
+        hosted_retry = job_block(source, "retry-release-distribution-hosted")
+        self.assertIn("vars.NG_HOSTED_FIRST == 'true'", hosted_retry)
+        self.assertIn("vars.NG_FORCE_JIT != 'true'", hosted_retry)
+        self.assertIn("github.run_attempt == 1", hosted_retry)
+        self.assertIn(
+            "uses: ./.github/workflows/retry-release-distribution.yml", hosted_retry
+        )
+        self.assertIn(
+            "skip_announcement: ${{ inputs.release_skip_announcement }}", hosted_retry
+        )
+        self.assertNotIn("secrets: inherit", hosted_retry)
+
+        release_retry = RETRY_RELEASE_DISTRIBUTION.read_text(encoding="utf-8")
+        call = event_block(release_retry, "workflow_call")
+        for name in (
+            "tag",
+            "softcover_digest",
+            "hardcover_digest",
+            "channels",
+            "chocolatey_use_main_packaging",
+            "skip_announcement",
+            "AUR_SSH_KEY",
+            "COPR_WEBHOOK_URL",
+            "GPG_PRIVATE_KEY",
+            "LAUNCHPAD_PPA",
+            "CHOCOLATEY_API_KEY",
+            "DISCORD_RELEASE_WEBHOOK",
+        ):
+            with self.subTest(reusable_workflow_input=name):
+                self.assertIn(f"      {name}:", call)
+
+    def test_chocolatey_verifier_needs_hosted_runner_mode(self) -> None:
+        source = WORKFLOW.read_text(encoding="utf-8")
+        job = job_block(source, "test-chocolatey-package-verifier")
+        self.assertIn("vars.NG_HOSTED_FIRST == 'true'", job)
+        self.assertIn("runs-on: windows-latest", job)
+        self.assertIn("inputs.release_tag == ''", job)
 
     def test_push_trigger_is_main_only(self) -> None:
         push = event_block(WORKFLOW.read_text(encoding="utf-8"), "push")
