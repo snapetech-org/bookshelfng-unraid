@@ -2218,6 +2218,7 @@ scripts/verify-chocolatey-package.ps1
 scripts/verify-package-sync.sh
 scripts/verify-stable-container-aliases.sh
 security/trivy-exceptions.yaml
+security/trivy-misconfig-data.yaml
 src/Bookshelf.Diagnostics/Bookshelf.Diagnostics.csproj
 src/Bookshelf.Diagnostics/DiagnosticsEventHandler.cs
 src/Bookshelf.Diagnostics/DiagnosticsReporter.cs
