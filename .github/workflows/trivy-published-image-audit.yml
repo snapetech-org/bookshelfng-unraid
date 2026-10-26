@@ -35,7 +35,7 @@ jobs:
       RELEASE_TAG: ${{ inputs.release_tag }}
       SOFTCOVER_DIGEST: ${{ inputs.softcover_digest }}
       HARDCOVER_DIGEST: ${{ inputs.hardcover_digest }}
-    runs-on: ${{ fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng","ng-main-run-{0}","gha-{0}-trivy-image-audit"]}}', github.run_id)) }}
+    runs-on: ${{ fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng-unraid","ng-main-run-{0}","gha-{0}-trivy-image-audit"]}}', github.run_id)) }}
     timeout-minutes: 60
     steps:
       - name: Checkout

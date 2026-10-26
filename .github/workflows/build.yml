@@ -140,7 +140,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
-    runs-on: ${{ fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng","ng-main-run-{0}","gha-{0}-retry-release-distribution"]}}', github.run_id)) }}
+    runs-on: ${{ fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng-unraid","ng-main-run-{0}","gha-{0}-retry-release-distribution"]}}', github.run_id)) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -604,7 +604,7 @@ jobs:
        github.event.pull_request.head.repo.full_name == github.repository)
     # Trusted main validation, private release builds, and the owner-only Linux
     # release retry use the isolated shared runner pool.
-    runs-on: ${{ fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng","ng-main-run-{0}","gha-{0}-build"]}}', github.run_id)) }}
+    runs-on: ${{ fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng-unraid","ng-main-run-{0}","gha-{0}-build"]}}', github.run_id)) }}
     outputs:
       build_version: ${{ steps.variables.outputs.build_version }}
     steps:
@@ -870,7 +870,7 @@ jobs:
          github.ref == 'refs/heads/main' && inputs.release_build_tag != '')) &&
        vars.BOOKSHELFNG_RELEASE_READY == 'true')
     needs: build
-    runs-on: ${{ fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng","ng-main-run-{0}","gha-{0}-publish-images"]}}', github.run_id)) }}
+    runs-on: ${{ fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng-unraid","ng-main-run-{0}","gha-{0}-publish-images"]}}', github.run_id)) }}
     permissions:
       contents: read
       packages: write
@@ -1068,7 +1068,7 @@ jobs:
     needs: publish-images
     env:
       TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db:2
-    runs-on: ${{ fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng","ng-main-run-{0}","gha-{0}-container-scan"]}}', github.run_id)) }}
+    runs-on: ${{ fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng-unraid","ng-main-run-{0}","gha-{0}-container-scan"]}}', github.run_id)) }}
     permissions:
       contents: read
       packages: read
@@ -1128,7 +1128,7 @@ jobs:
          github.ref == 'refs/heads/main' && inputs.release_build_tag != '')) &&
        vars.BOOKSHELFNG_RELEASE_READY == 'true')
     needs: [build, publish-images, container-scan]
-    runs-on: ${{ fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng","ng-main-run-{0}","gha-{0}-release"]}}', github.run_id)) }}
+    runs-on: ${{ fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng-unraid","ng-main-run-{0}","gha-{0}-release"]}}', github.run_id)) }}
     permissions:
       actions: read
       contents: write
@@ -1303,7 +1303,7 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.head.repo.id == github.repository_id &&
       github.event.pull_request.base.ref == 'main'
-    runs-on: ${{ (github.event_name == 'pull_request_target' && github.actor == 'snapetech' && github.event.pull_request.user.login == 'snapetech' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.repo.id == github.repository_id && github.event.pull_request.base.ref == 'main') && fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng","ng-main-run-{0}","gha-{0}-owner-pr-dispatcher"]}}', github.run_id)) }}
+    runs-on: ${{ (github.event_name == 'pull_request_target' && github.actor == 'snapetech' && github.event.pull_request.user.login == 'snapetech' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.repo.id == github.repository_id && github.event.pull_request.base.ref == 'main') && fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng-unraid","ng-main-run-{0}","gha-{0}-owner-pr-dispatcher"]}}', github.run_id)) }}
     permissions:
       actions: write
       contents: none
@@ -1339,7 +1339,7 @@ jobs:
       (github.actor == 'snapetech' || github.actor == 'github-actions[bot]') &&
       inputs.pr_number != '' && inputs.pr_sha != '' && inputs.target_run_id != '' &&
       github.ref == 'refs/heads/main'
-    runs-on: ${{ (github.event_name == 'workflow_dispatch' && (github.actor == 'snapetech' || github.actor == 'github-actions[bot]') && inputs.pr_number != '' && inputs.pr_sha != '' && inputs.target_run_id != '' && github.ref == 'refs/heads/main') && fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng","ng-main-run-{0}","gha-{0}-owner-pr-reporter"]}}', github.run_id)) }}
+    runs-on: ${{ (github.event_name == 'workflow_dispatch' && (github.actor == 'snapetech' || github.actor == 'github-actions[bot]') && inputs.pr_number != '' && inputs.pr_sha != '' && inputs.target_run_id != '' && github.ref == 'refs/heads/main') && fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng-unraid","ng-main-run-{0}","gha-{0}-owner-pr-reporter"]}}', github.run_id)) }}
     permissions:
       checks: write
       contents: none

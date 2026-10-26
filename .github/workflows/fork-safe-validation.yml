@@ -11,17 +11,11 @@ jobs:
       github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.fork == true &&
       github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name &&
-      github.event.pull_request.base.repo.full_name == 'snapetech-org/bookshelfng' &&
+      github.event.pull_request.base.repo.full_name == 'snapetech-org/bookshelfng-unraid' &&
       github.event.pull_request.base.ref == 'main'
     # This group must only be served by a disposable VM with no secrets and restricted egress.
     runs-on:
-      group: public-fork-jit
-      labels:
-        - self-hosted
-        - linux
-        - x64
-        - public-pr-bookshelfng
-    timeout-minutes: 15
+      ${{ fromJSON('{"group":"public-fork-jit","labels":["self-hosted","linux","x64","public-pr-bookshelfng-unraid"]}') }}timeout-minutes: 15
     permissions:
       contents: read
     steps:

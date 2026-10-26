@@ -34,7 +34,7 @@ jobs:
       REQUIRE_TRIVY: "1"
       TRIVY_SEVERITY: ${{ github.event_name == 'workflow_dispatch' && inputs.full_vulnerability_audit == true && 'UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL' || 'HIGH,CRITICAL' }}
       TRIVY_IGNORE_UNFIXED: ${{ github.event_name == 'workflow_dispatch' && inputs.full_vulnerability_audit == true && 'false' || 'true' }}
-    runs-on: ${{ fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng","ng-main-run-{0}","gha-{0}-trivy"]}}', github.run_id)) }}
+    runs-on: ${{ fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng-unraid","ng-main-run-{0}","gha-{0}-trivy"]}}', github.run_id)) }}
     timeout-minutes: 30
     steps:
       - name: Checkout
