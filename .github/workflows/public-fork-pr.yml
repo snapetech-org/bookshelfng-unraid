@@ -1,23 +1,28 @@
-name: BookshelfNG fork PR validation
+name: BookshelfNG Unraid fork PR validation
+run-name: >-
+  action:ci:pool:${{ contains(github.event.pull_request.labels.*.name, 'pool:public') && 'public' || 'hybrid' }}:pr-${{ github.event.pull_request.number }}
 on:
   pull_request:
+    types: [labeled]
     branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review]
 permissions:
   contents: read
 concurrency:
   group: public-fork-pr-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   validate:
     name: Run disposable fork validation
     if: >-
+      github.event.action == 'labeled' &&
+      github.actor == 'snapetech' &&
+      (startsWith(github.event.label.name, 'action:') || startsWith(github.event.label.name, 'pool:')) &&
+      contains(github.event.pull_request.labels.*.name, 'action:ci') &&
+      (contains(github.event.pull_request.labels.*.name, 'pool:public') || contains(github.event.pull_request.labels.*.name, 'pool:hybrid')) &&
       github.event.pull_request.head.repo.fork == true &&
       github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name &&
       github.event.pull_request.base.repo.full_name == 'snapetech-org/bookshelfng-unraid' &&
       github.event.pull_request.base.ref == 'main'
     permissions:
       contents: read
-    # Run the fork-safe validation workflow at its reviewed immutable revision.
-    uses: snapetech-org/bookshelfng-unraid/.github/workflows/fork-safe-validation.yml@c7b049548490aab4fdbdbe9e8900e019ea44a88a
-
+    uses: snapetech-org/bookshelfng-unraid/.github/workflows/fork-safe-validation.yml@df8d4bac94fb6a564b73bf691b43d33c998bf1bb
