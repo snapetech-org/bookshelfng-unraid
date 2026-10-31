@@ -1057,6 +1057,7 @@ jobs:
     permissions:
       contents: read
       packages: read
+      security-events: write
     steps:
       - name: "Full severity scan: Softcover image"
         id: softcover_scan
@@ -1070,19 +1071,13 @@ jobs:
           ignore-unfixed: false
           exit-code: "1"
 
-      - name: Retain scan report (trivy-softcover)
-        if: >-
-          always() &&
-          (hashFiles('trivy-softcover.sarif') != '') &&
-          (github.event_name != 'pull_request' ||
-          github.event.pull_request.head.repo.full_name == github.repository)
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - name: Upload Softcover findings
+        if: always() && hashFiles('trivy-softcover.sarif') != ''
+        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
         with:
-          name: scan-report-trivy-softcover-${{ github.job }}-${{ strategy.job-index }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            trivy-softcover.sarif
-          if-no-files-found: warn
-          retention-days: 14
+          sarif_file: trivy-softcover.sarif
+          category: trivy-softcover
+
       - name: "Full severity scan: Hardcover image"
         id: hardcover_scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
@@ -1095,19 +1090,38 @@ jobs:
           ignore-unfixed: false
           exit-code: "1"
 
-      - name: Retain scan report (trivy-hardcover)
-        if: >-
-          always() &&
-          (hashFiles('trivy-hardcover.sarif') != '') &&
-          (github.event_name != 'pull_request' ||
-          github.event.pull_request.head.repo.full_name == github.repository)
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - name: Upload Hardcover findings
+        if: always() && hashFiles('trivy-hardcover.sarif') != ''
+        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
         with:
-          name: scan-report-trivy-hardcover-${{ github.job }}-${{ strategy.job-index }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            trivy-hardcover.sarif
-          if-no-files-found: warn
-          retention-days: 14
+          sarif_file: trivy-hardcover.sarif
+          category: trivy-hardcover
+
+  release:
+    name: Prepare release notes and draft
+    if: >-
+      (github.event_name != 'pull_request_target' &&
+      (github.event_name != 'pull_request' || github.actor != 'snapetech' ||
+       github.event.pull_request.user.login != 'snapetech' ||
+       github.event.pull_request.head.repo.full_name != github.repository ||
+       github.event.pull_request.head.repo.id != github.repository_id ||
+       github.event.pull_request.base.ref != 'main') &&
+      (github.event_name != 'workflow_dispatch' ||
+       (inputs.pr_number == '' && inputs.pr_sha == '' && inputs.target_run_id == ''))) &&
+      (((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+        (github.event_name == 'workflow_dispatch' && github.actor == 'snapetech' &&
+         github.ref == 'refs/heads/main' && inputs.release_build_tag != '')) &&
+       vars.BOOKSHELFNG_RELEASE_READY == 'true')
+    needs: [build, publish-images, container-scan]
+    runs-on: ${{ fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng-unraid","ng-main-run-{0}","gha-{0}-release"]}}', github.run_id)) }}
+    permissions:
+      actions: read
+      contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.release_build_tag || github.ref_name }}
+      SOFTCOVER_DIGEST: ${{ needs.publish-images.outputs.softcover_digest }}
+      HARDCOVER_DIGEST: ${{ needs.publish-images.outputs.hardcover_digest }}
+    steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.ref }}
