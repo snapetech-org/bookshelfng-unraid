@@ -3,17 +3,11 @@ name: Unraid transition template
 
 on:
   pull_request:
+    types: [labeled]
     paths:
       - "templates/bookshelfng.xml"
       - "scripts/test-transition-template.py"
       - ".github/workflows/transition-template.yml"
-  push:
-    branches:
-      - main
-    paths:
-      - "templates/bookshelfng.xml"
-      - "scripts/test-transition-template.py"
-
 permissions:
   contents: read
 
@@ -23,6 +17,21 @@ concurrency:
 
 jobs:
   validate-transition-template:
+    # Keep external fork code off trusted JIT groups until its isolated route is authorized.
+    if: >-
+      (
+        (
+        github.event_name == 'pull_request' &&
+        github.event.action == 'labeled' &&
+        (github.event.label.name == 'action:ci' || github.event.label.name == 'pool:private') &&
+        contains(github.event.pull_request.labels.*.name, 'action:ci') &&
+        contains(github.event.pull_request.labels.*.name, 'pool:private') &&
+        github.event.pull_request.head.repo.full_name == github.repository
+        )
+      ) &&
+      (
+        github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+      )
     name: Validate legacy handoff template
     runs-on: ${{ fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng-unraid","ng-main-run-{0}","gha-{0}-validate-transition-template"]}}', github.run_id)) }}
     steps:
