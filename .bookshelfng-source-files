@@ -2037,6 +2037,7 @@ release-notes/2026-10-22-semgrep-runner-proxy.md
 release-notes/2026-10-26-github-cli-release-gate-checks.md
 release-notes/2026-10-26-public-fork-validation-jit.md
 release-notes/2026-11-09-extra-platform-runtime-version.md
+release-notes/2026-11-09-release-active-sdk-runtime-metadata.md
 release-notes/2026-11-09-release-runtime-graph-version.md
 release-notes/20260925-catalog-packaging.md
 release-notes/20261011-validation-engine.md
@@ -2058,6 +2059,7 @@ release-notes/20261024-dependency-security-updates.md
 release-notes/20261025-final-security-maintenance.md
 release-notes/20261025-release-build-isolation.md
 release-notes/20261025-release-cache-isolation.md
+release-notes/20261109-chocolatey-package-metadata.md
 release-notes/20261109-upstream-source-attribution.md
 release-notes/README.md
 release-notes/accept-library-of-congress-record-urls.md
