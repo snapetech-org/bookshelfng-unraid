@@ -1,4 +1,4 @@
-name: BookshelfNG Unraid fork PR validation
+name: BookshelfNG fork PR validation
 run-name: >-
   action:ci:pool:${{ contains(github.event.pull_request.labels.*.name, 'pool:public') && 'public' || 'hybrid' }}:pr-${{ github.event.pull_request.number }}
 on:
@@ -21,8 +21,8 @@ jobs:
       (contains(github.event.pull_request.labels.*.name, 'pool:public') || contains(github.event.pull_request.labels.*.name, 'pool:hybrid')) &&
       github.event.pull_request.head.repo.fork == true &&
       github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name &&
-      github.event.pull_request.base.repo.full_name == 'snapetech-org/bookshelfng-unraid' &&
+      github.event.pull_request.base.repo.full_name == 'snapetech-org/bookshelfng' &&
       github.event.pull_request.base.ref == 'main'
     permissions:
       contents: read
-    uses: snapetech-org/bookshelfng-unraid/.github/workflows/fork-safe-validation.yml@df8d4bac94fb6a564b73bf691b43d33c998bf1bb
+    uses: snapetech-org/bookshelfng/.github/workflows/fork-safe-validation.yml@7b2206130bbbed8a13e86356f1dbae21c04c7adc

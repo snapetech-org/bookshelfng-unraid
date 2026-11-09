@@ -14,7 +14,6 @@
 .github/dependabot.yml
 .github/workflows/build.yml
 .github/workflows/chaptarrng-release-bridge.yml
-.github/workflows/codeql.yml
 .github/workflows/fork-safe-validation.yml
 .github/workflows/gvisor-runner-smoke.yml
 .github/workflows/package-sync.yml
@@ -33,6 +32,8 @@
 .vscode/launch.json
 .vscode/tasks.json
 .yarnrc
+AGENTS.md
+CHANGELOG.md
 CLA.md
 CODE_OF_CONDUCT.md
 LICENSE
@@ -50,6 +51,7 @@ Logo/800.png
 Logo/96-Outline-White.png
 Logo/Readarr.svg
 SECURITY.md
+UPSTREAM_ATTRIBUTION.md
 build.sh
 charts/bookshelfng/Chart.yaml
 charts/bookshelfng/README.md
@@ -2054,6 +2056,7 @@ release-notes/20261024-dependency-security-updates.md
 release-notes/20261025-final-security-maintenance.md
 release-notes/20261025-release-build-isolation.md
 release-notes/20261025-release-cache-isolation.md
+release-notes/20261109-upstream-source-attribution.md
 release-notes/README.md
 release-notes/accept-library-of-congress-record-urls.md
 release-notes/add-standalone-distributions.md

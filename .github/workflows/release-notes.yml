@@ -98,7 +98,7 @@ jobs:
           pool_labels = [label for label in labels if isinstance(label, str) and label.startswith("pool:")]
           if action_labels != ["action:ci"] or pool_labels != ["pool:private"]:
               raise SystemExit("add exactly action:ci and pool:private labels")
-          if repository != "snapetech-org/bookshelfng-unraid":
+          if repository != "snapetech-org/bookshelfng":
               raise SystemExit("unexpected repository")
           if pr_author != "snapetech" or pr_repository.lower() != repository.lower():
               raise SystemExit("private validation only accepts the repository owner's pull requests")
@@ -122,7 +122,7 @@ jobs:
               },
           }).encode("utf-8")
           request = Request(
-              "https://api.github.com/repos/snapetech-org/bookshelfng-unraid/actions/workflows/release-notes.yml/dispatches",
+              "https://api.github.com/repos/snapetech-org/bookshelfng/actions/workflows/release-notes.yml/dispatches",
               data=payload,
               headers={
                   "Accept": "application/vnd.github+json",
@@ -146,7 +146,7 @@ jobs:
       inputs.pr_author == 'snapetech' && inputs.pr_repository == github.repository &&
       inputs.action_tag == 'ci' && inputs.runner_pool_tag == 'private' &&
       github.actor == 'github-actions[bot]'
-    runs-on: ${{ fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng-unraid","ng-main-run-{0}","gha-{0}-validate"]}}', github.run_id)) }}
+    runs-on: ${{ fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng","ng-main-run-{0}","gha-{0}-validate"]}}', github.run_id)) }}
     permissions:
       contents: read
       pull-requests: read
@@ -250,7 +250,7 @@ jobs:
       inputs.pr_author == 'snapetech' && inputs.pr_repository == github.repository &&
       inputs.action_tag == 'ci' && inputs.runner_pool_tag == 'private' &&
       github.actor == 'github-actions[bot]'
-    runs-on: ${{ fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng-unraid","ng-main-run-{0}","gha-{0}-owner-pr-reporter"]}}', github.run_id)) }}
+    runs-on: ${{ fromJSON(format('{{"group":"ng-shared-main-jit","labels":["self-hosted","linux","x64","ng-shared-main-bookshelfng","ng-main-run-{0}","gha-{0}-owner-pr-reporter"]}}', github.run_id)) }}
     permissions:
       checks: write
       contents: none
@@ -275,19 +275,19 @@ jobs:
           conclusion = "success" if result == "success" else ("cancelled" if result == "cancelled" else "failure")
           run_id = os.environ["VALIDATION_RUN_ID"]
           payload = json.dumps({
-              "name": "BookshelfNG Unraid Release Notes owner PR",
+              "name": "BookshelfNG Release Notes owner PR",
               "head_sha": sha,
               "external_id": run_id,
               "status": "completed",
               "conclusion": conclusion,
-              "details_url": f"https://github.com/snapetech-org/bookshelfng-unraid/actions/runs/{run_id}",
+              "details_url": f"https://github.com/snapetech-org/bookshelfng/actions/runs/{run_id}",
               "output": {
-                  "title": "BookshelfNG Unraid Release Notes owner PR " + conclusion,
+                  "title": "BookshelfNG Release Notes owner PR " + conclusion,
                   "summary": "See the linked main-pinned workflow run for validation details.",
               },
           }).encode("utf-8")
           request = Request(
-              "https://api.github.com/repos/snapetech-org/bookshelfng-unraid/check-runs",
+              "https://api.github.com/repos/snapetech-org/bookshelfng/check-runs",
               data=payload,
               headers={
                   "Accept": "application/vnd.github+json",
