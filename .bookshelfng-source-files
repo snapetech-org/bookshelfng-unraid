@@ -2059,8 +2059,10 @@ release-notes/20261024-dependency-security-updates.md
 release-notes/20261025-final-security-maintenance.md
 release-notes/20261025-release-build-isolation.md
 release-notes/20261025-release-cache-isolation.md
+release-notes/20261109-chocolatey-discovery-metadata.md
 release-notes/20261109-chocolatey-package-metadata.md
 release-notes/20261109-upstream-source-attribution.md
+release-notes/20261110-chocolatey-payload-budget.md
 release-notes/README.md
 release-notes/accept-library-of-congress-record-urls.md
 release-notes/add-standalone-distributions.md
@@ -2168,6 +2170,7 @@ release-notes/fixed-unknown-audiobook-part-order.md
 release-notes/fixed-unraid-xml-scan-warnings.md
 release-notes/fixed-vorbis-narrator-performer-collision.md
 release-notes/fixed-vorbis-narrator-tag-compatibility.md
+release-notes/fixed-web-ui-url-base-assets.md
 release-notes/fixed-windows-standalone-launcher.md
 release-notes/fixed-yunohost-root-url.md
 release-notes/full-release-image-audit.md
@@ -2205,6 +2208,7 @@ scripts/check-release-notes.mjs
 scripts/check-stable-container-aliases.py
 scripts/create-consolidation-fixture.py
 scripts/create-release-archives.sh
+scripts/discord_release_route.py
 scripts/install-dotnet10-platform-runtime.sh
 scripts/install-package-sync-hook.sh
 scripts/install-security-hooks.sh
@@ -2245,6 +2249,7 @@ src/NzbDrone.Api.Test/Books/BookLookupControllerFixture.cs
 src/NzbDrone.Api.Test/Books/BookStatisticsResourceFixture.cs
 src/NzbDrone.Api.Test/ClientSchemaTests/SchemaBuilderFixture.cs
 src/NzbDrone.Api.Test/Config/MetadataProviderConfigResourceFixture.cs
+src/NzbDrone.Api.Test/Frontend/HtmlMapperBaseFixture.cs
 src/NzbDrone.Api.Test/Readarr.Api.Test.csproj
 src/NzbDrone.Api.Test/System/SystemControllerFixture.cs
 src/NzbDrone.Api.Test/packages.lock.json
