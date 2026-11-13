@@ -2161,6 +2161,7 @@ release-notes/fixed-metadata-environment-credential-layout.md
 release-notes/fixed-mp4-chapter-metadata.md
 release-notes/fixed-multiple-book-formats.md
 release-notes/fixed-multiple-vorbis-narrators.md
+release-notes/fixed-platform-runtime-pack-feed.md
 release-notes/fixed-preferred-series-selection.md
 release-notes/fixed-queue-ignore-unmatched-downloads.md
 release-notes/fixed-react-dnd-v16-build.md
