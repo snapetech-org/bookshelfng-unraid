@@ -2185,6 +2185,7 @@ release-notes/security-booklore-login-redirects.md
 release-notes/security-cross-origin-redirects.md
 release-notes/security-dependency-audit.md
 release-notes/security-dotnet-10-november-2026.md
+release-notes/security-dotnet-10.0.15-platform-packs.md
 release-notes/security-hardened-container-and-helm-chart.md
 release-notes/security-musl-regex-overflow.md
 release-notes/security-patch-frontend-build-dependencies.md
