@@ -118,7 +118,7 @@ docs/booklore-integration.md
 docs/capabilities-and-compatibility.md
 docs/catalog-metadata-and-unmapped-files.md
 docs/distribution.md
-docs/dotnet-10-platform-builds.md
+docs/dotnet-11-platform-builds.md
 docs/encrypted-backups.md
 docs/import-matching-and-formats.md
 docs/integrations/snapetech-mcp.md
@@ -2042,6 +2042,7 @@ release-notes/2026-11-09-release-runtime-graph-version.md
 release-notes/2026-11-13-freebsd-runtime-pack-build.md
 release-notes/2026-11-13-freebsd-runtime-pack-condition.md
 release-notes/2026-11-13-freebsd-runtime-pdb-warning.md
+release-notes/2026-11-18-dotnet-11.md
 release-notes/20260925-catalog-packaging.md
 release-notes/20261011-validation-engine.md
 release-notes/20261012-postcss-selector-parser-security.md
@@ -2209,14 +2210,14 @@ scripts/bookshelf-move-media.sh
 scripts/bookshelf-retry-unmapped.sh
 scripts/bookshelfng-to-chaptarrng.sh
 scripts/build-chaptarrng-chocolatey-bridge.ps1
-scripts/build-dotnet10-platform-runtime-packs.sh
+scripts/build-dotnet11-platform-runtime-packs.sh
 scripts/check-react-router-context.js
 scripts/check-release-notes.mjs
 scripts/check-stable-container-aliases.py
 scripts/create-consolidation-fixture.py
 scripts/create-release-archives.sh
 scripts/discord_release_route.py
-scripts/install-dotnet10-platform-runtime.sh
+scripts/install-dotnet11-platform-runtime.sh
 scripts/install-package-sync-hook.sh
 scripts/install-security-hooks.sh
 scripts/preview-release-notes.mjs
