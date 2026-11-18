@@ -2234,6 +2234,7 @@ scripts/test-bookshelfng-to-chaptarrng.sh
 scripts/test-chaptarrng-release-bridge.sh
 scripts/test-chocolatey-package-verifier.ps1
 scripts/test-copr-source.sh
+scripts/test-linux-x86-http.cs
 scripts/test-sync-unraid-package.sh
 scripts/test_workflow_runner_policy.py
 scripts/update-security-tools.sh
