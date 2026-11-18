@@ -2217,6 +2217,7 @@ scripts/check-stable-container-aliases.py
 scripts/create-consolidation-fixture.py
 scripts/create-release-archives.sh
 scripts/discord_release_route.py
+scripts/dotnet-linux-x86.Dockerfile
 scripts/install-dotnet11-platform-runtime.sh
 scripts/install-package-sync-hook.sh
 scripts/install-security-hooks.sh
