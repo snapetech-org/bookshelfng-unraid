@@ -5,7 +5,7 @@ management and acquisition. It works independently; SeerrNG integration is optio
 
 > **Published state (2026-10-20):** BookshelfNG `0.4.21.71` and ChaptarrNG `v0.9.977` remain the latest releases. ChaptarrNG source candidate `f30dcec8` (row-format author editing, root-folder defaults and backfill, stale-response protection and retry, and monitoring error feedback) passed Build [39520269403](https://github.com/snapetech-org/chaptarrng/actions/runs/39520269403) on Linux, Windows, and macOS, plus PostgreSQL migration smoke, native-runner receipt reconciliation, and Windows installer migration/rollback checks. Security Analysis, Semgrep CE, Trivy, and NuGet submission passed; no CodeQL run is attached to this source commit, and the release-note contract was skipped on the main push. The source is unpublished and not approved for cutover. Keep BookshelfNG running; while [issue #144](https://github.com/snapetech-org/bookshelfng/issues/144) remains open, do not apply migration or start ChaptarrNG against BookshelfNG appdata. See the [retirement status](https://github.com/snapetech-org/chaptarrng/blob/main/docs/BOOKSHELFNG_RETIREMENT.md) and [migration guide](https://github.com/snapetech-org/bookshelfng/blob/main/docs/migrate-from-bookshelfng-to-chaptarrng.md).
 >
-> The handoff Unraid PR [#5](https://github.com/snapetech-org/bookshelfng-unraid/pull/5) remains a draft. Its template-preservation check is `python3 scripts/test-transition-template.py`; it does not cover a live Community Applications update, rollback, or populated-data migration. Hosted check status is shown on the PR. Keep both release-readiness gates unset.
+> The handoff Unraid PR [#5](https://github.com/snapetech-org/bookshelfng-unraid/pull/5) was closed without merging; its candidate template and template-preservation check are not on `main`. That check did not cover a live Community Applications update, rollback, or populated-data migration. Hosted check status is shown on the PR. Keep both release-readiness gates unset.
 >
 
 ## Existing installations
@@ -17,9 +17,9 @@ template on `main` still points to BookshelfNG. A transition
 candidate preserves its appdata path, port, media/download mappings, user IDs,
 timezone, and Hardcover settings while switching to the standard ChaptarrNG
 image. It is not published and must remain on its feature branch until the
-application release and Unraid update-flow gates pass. The XML and
-settings-preservation check passed; run
-`python3 scripts/test-transition-template.py` to repeat it.
+application release and Unraid update-flow gates pass. Its XML and
+settings-preservation check passed on the closed handoff PR #5; the candidate
+and its check are not on `main`.
 Read the
 [BookshelfNG-to-ChaptarrNG migration guide](https://github.com/snapetech-org/bookshelfng/blob/main/docs/migrate-from-bookshelfng-to-chaptarrng.md).
 When cutover is approved, upgrade BookshelfNG to `.71`, stop the service, and

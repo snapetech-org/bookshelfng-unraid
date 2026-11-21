@@ -23,8 +23,9 @@ candidate keeps the existing BookshelfNG entry, appdata path, port, media and
 download mappings, user IDs, timezone, and Hardcover settings while switching
 to the standard ChaptarrNG image. It is not published and must remain on its
 feature branch until the application release and Unraid update-flow gates
-pass. The XML and settings-preservation check passed; run
-`python3 scripts/test-transition-template.py` to repeat it. Read the
+pass. Its XML and settings-preservation check passed on the closed handoff
+[PR #5](https://github.com/snapetech-org/bookshelfng-unraid/pull/5); the
+candidate and its check are not on `main`. Read the
 [BookshelfNG-to-ChaptarrNG migration guide](https://github.com/snapetech-org/bookshelfng/blob/main/docs/migrate-from-bookshelfng-to-chaptarrng.md).
 When cutover is approved, upgrade BookshelfNG to `.71`, stop the service, and
 keep an independent appdata backup before switching. New installations should use the
